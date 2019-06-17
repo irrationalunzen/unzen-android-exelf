@@ -2,6 +2,6 @@
 
 int main(int argc, char *argv[])
 {
-    printf("Hello from execbaz!\n");
+    printf("I'm execbaz!\n");
     return 0;
 }

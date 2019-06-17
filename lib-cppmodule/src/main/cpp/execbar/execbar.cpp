@@ -2,6 +2,6 @@
 
 int main(int argc, char *argv[])
 {
-    printf("Hello from execbar!\n");
+    printf("I'm execbar!\n");
     return 0;
 }

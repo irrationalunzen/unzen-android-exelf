@@ -1,5 +1,7 @@
 apply plugin: 'com.android.library'
 
+def abis = ['armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64']
+
 android {
     compileSdkVersion 28
     buildToolsVersion "29.0.0"
@@ -20,9 +22,84 @@ android {
             debuggable = false
         }
     }
+    buildTypes {
+        debug {
+            jniDebuggable true
+            debuggable = true
+            ndk {
+                abiFilters = abis
+            }
+        }
+        release {
+            jniDebuggable false
+            debuggable = false
+            ndk {
+                abiFilters = abis
+            }
+        }
+    }
     externalNativeBuild {
         ndkBuild {
             path "src/main/cpp/Android.mk"
         }
+    }
+}
+
+android.libraryVariants.all { variant ->
+    def srcAssetsDirPath = 'src/main/assets'
+    def assetsSubdirName = 'exec-stripped'
+
+    def taskSuffix = variant.name.capitalize()
+    def defNativeBuildTask = project.tasks['externalNativeBuild' + taskSuffix]
+    def defMergeJniTask = project.tasks['transformNativeLibsWithMergeJniLibsFor' + taskSuffix]
+    def defStripTask = project.tasks['transformNativeLibsWithStripDebugSymbolFor' + taskSuffix]
+
+    def defGenerateAssetsTask = project.tasks['generate' + taskSuffix + 'Assets']
+    def defPackageAssetsTask = project.tasks['package' + taskSuffix + 'Assets']
+    def defMergeAssetsTask = project.tasks['merge' + taskSuffix + 'Assets']
+
+    def modulePath = projectDir.absolutePath
+    def intermediatesDir = "$project.buildDir.absolutePath/intermediates/"
+    // <module>/build/intermediates/ndkBuild/debug/obj/local
+    def objDir = intermediatesDir + 'ndkBuild/' + variant.dirName + '/obj/local'
+    def transformsDir = intermediatesDir + 'transforms/'
+    def magicPath = '/0/lib'
+    // <module>/build/intermediates/transforms/mergeJniLibs/debug/0/lib
+    def mergeDir = transformsDir + 'mergeJniLibs/' + variant.dirName + magicPath
+    // <module>/build/intermediates/transforms/stripDebugSymbol/debug/0/lib
+    def stripDir = transformsDir + 'stripDebugSymbol/' + variant.dirName + magicPath
+    def assetsDirSuffix = "${variant.dirName}/merge${taskSuffix}Assets/out/${assetsSubdirName}"
+    // <module>/build/intermediates/merged_assets/debug/mergeDebugAssets/out/${assetsDirName}
+    //def assetsDir = "${intermediatesDir}merged_assets/${assetsDirSuffix}"
+    def assetsDir = "$modulePath/$srcAssetsDirPath/${assetsSubdirName}"
+
+    defStripTask.outputs.upToDateWhen { false }
+    defStripTask.doLast {
+        delete(assetsDir)
+    }
+
+    abis.each { abi ->
+        def myPrepareForStripTaskName = "prepareExecForStrip${taskSuffix}-${abi}"
+        def myPrepareForStripTask = tasks.create(name: myPrepareForStripTaskName, type: Copy) {
+            from objDir
+            into mergeDir
+            include abi + '/execbar'
+            include abi + '/execbaz'
+            includeEmptyDirs = false
+        }
+        myPrepareForStripTask.dependsOn defNativeBuildTask
+        //myPrepareForStripTask.mustRunAfter defMergeJniTask
+        defStripTask.dependsOn myPrepareForStripTask
+
+        def myCopyToAssetsTaskName = "copyExecToAssets${taskSuffix}-${abi}"
+        def myCopyToAssetsTask = tasks.create(name: myCopyToAssetsTaskName, type: Copy) {
+            from stripDir
+            into assetsDir
+            include abi + '/execbar'
+            include abi + '/execbaz'
+            includeEmptyDirs = false
+        }
+        myCopyToAssetsTask.dependsOn defStripTask
+        defPackageAssetsTask.dependsOn myCopyToAssetsTask
     }
 }
