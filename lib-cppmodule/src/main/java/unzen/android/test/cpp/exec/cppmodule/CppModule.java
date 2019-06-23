@@ -6,5 +6,5 @@ public class CppModule {
         System.loadLibrary("jnifoo");
     }
 
-    static public native String stringFromJNI();
+    static public native String getStringFromJni();
 }
