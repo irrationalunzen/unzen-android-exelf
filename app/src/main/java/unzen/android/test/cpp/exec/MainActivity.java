@@ -1,7 +1,5 @@
 package unzen.android.test.cpp.exec;
 
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.widget.TextView;
@@ -26,7 +24,6 @@ import java.util.Set;
 import unzen.android.test.cpp.exec.cppmodule.CppModule;
 import unzen.android.test.cpp.exec.utils.ZenUtils;
 
-import static android.content.pm.PackageManager.GET_SHARED_LIBRARY_FILES;
 import static unzen.android.test.cpp.exec.utils.L.format;
 
 public class MainActivity extends AppCompatActivity {
@@ -149,20 +146,25 @@ public class MainActivity extends AppCompatActivity {
         Report jniReport = getJniReport(apkDir);
         File assetsDir = new File(apkDir, "assets");
         Report strippedReport = getExecReport(assetsDir, "exec-stripped");
-        Report unstrippedReport = getExecReport(assetsDir, "exec-unstripped");
+        Report notstripReport = getExecReport(assetsDir, "exec-notstrip");
+
+        File dummy = new File(assetsDir, "dummy.txt");
+        if (!dummy.exists() || dummy.length() == 0) {
+            throw new IllegalStateException();
+        }
 
         boolean abiMatch = true;
-        if (!strippedReport.abis.isEmpty() && !unstrippedReport.abis.isEmpty()) {
-            abiMatch = strippedReport.abis.equals(unstrippedReport.abis);
+        if (!strippedReport.abis.isEmpty() && !notstripReport.abis.isEmpty()) {
+            abiMatch = strippedReport.abis.equals(notstripReport.abis);
         }
         if (!strippedReport.abis.isEmpty()) {
             abiMatch = abiMatch && jniReport.abis.equals(strippedReport.abis);
         }
-        if (!unstrippedReport.abis.isEmpty()) {
-            abiMatch = abiMatch && jniReport.abis.equals(unstrippedReport.abis);
+        if (!notstripReport.abis.isEmpty()) {
+            abiMatch = abiMatch && jniReport.abis.equals(notstripReport.abis);
         }
 
-        Report[] reports = {jniReport, strippedReport, unstrippedReport};
+        Report[] reports = {jniReport, strippedReport, notstripReport};
         ArrayList<String> result = new ArrayList<>();
         if (abiMatch) {
             result.add(jniReport.abisString);
@@ -189,19 +191,5 @@ public class MainActivity extends AppCompatActivity {
         } catch (Throwable e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private void checkSharedLibraryFiles(ArrayList<String> report) throws Throwable {
-        PackageManager pm = getPackageManager();
-        ApplicationInfo info = pm.getApplicationInfo(getPackageName(), GET_SHARED_LIBRARY_FILES);
-        if (info.sharedLibraryFiles != null) {
-            report.add("sharedLibraryFiles: " + TextUtils.join(", ", info.sharedLibraryFiles));
-        }
-        File nativeLibraryDir = new File(info.nativeLibraryDir);
-        String[] libsNames = nativeLibraryDir.list();
-        if (libsNames.length != 1 || !libsNames[0].equals(FOO)) {
-            //throw new IllegalStateException(String.valueOf(libsNames.length));
-        }
-        report.add(format("nativeLibraryDir: %s %d", nativeLibraryDir.getName(), nativeLibraryDir));
     }
 }

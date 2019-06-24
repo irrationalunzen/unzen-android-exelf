@@ -46,8 +46,11 @@ android {
 }
 
 android.libraryVariants.all { variant ->
+    def packStripped = true
+    def packNotstrip = true
     def srcAssetsDirPath = 'src/main/assets'
-    def assetsSubdirName = 'exec-stripped'
+    def assetsStrippedDirName = 'exec-stripped'
+    def assetsNotstripDirName = 'exec-notstrip'
 
     def taskSuffix = variant.name.capitalize()
     def defNativeBuildTask = project.tasks['externalNativeBuild' + taskSuffix]
@@ -56,6 +59,8 @@ android.libraryVariants.all { variant ->
 
     def defGenerateAssetsTask = project.tasks['generate' + taskSuffix + 'Assets']
     def defPackageAssetsTask = project.tasks['package' + taskSuffix + 'Assets']
+    // Doesn't runs in lib-cppmodule. Runs in app module after lib-cppmodule module have completed
+    // generateVariantAssets and packageVariantAssets.
     def defMergeAssetsTask = project.tasks['merge' + taskSuffix + 'Assets']
 
     def modulePath = projectDir.absolutePath
@@ -68,14 +73,15 @@ android.libraryVariants.all { variant ->
     def mergeDir = transformsDir + 'mergeJniLibs/' + variant.dirName + magicPath
     // <module>/build/intermediates/transforms/stripDebugSymbol/debug/0/lib
     def stripDir = transformsDir + 'stripDebugSymbol/' + variant.dirName + magicPath
-    def assetsDirSuffix = "${variant.dirName}/merge${taskSuffix}Assets/out/${assetsSubdirName}"
     // <module>/build/intermediates/merged_assets/debug/mergeDebugAssets/out/${assetsDirName}
     //def assetsDir = "${intermediatesDir}merged_assets/${assetsDirSuffix}"
-    def assetsDir = "$modulePath/$srcAssetsDirPath/${assetsSubdirName}"
+    def assetsStrippedDir = "$modulePath/$srcAssetsDirPath/${assetsStrippedDirName}"
+    def assetsNotstripDir = "$modulePath/$srcAssetsDirPath/${assetsNotstripDirName}"
 
     defStripTask.outputs.upToDateWhen { false }
     defStripTask.doLast {
-        delete(assetsDir)
+        delete(assetsStrippedDir)
+        delete(assetsNotstripDir)
     }
 
     abis.each { abi ->
@@ -87,19 +93,35 @@ android.libraryVariants.all { variant ->
             include abi + '/execbaz'
             includeEmptyDirs = false
         }
-        myPrepareForStripTask.dependsOn defNativeBuildTask
-        //myPrepareForStripTask.mustRunAfter defMergeJniTask
+        myPrepareForStripTask.dependsOn defMergeJniTask
         defStripTask.dependsOn myPrepareForStripTask
 
-        def myCopyToAssetsTaskName = "copyExecToAssets${taskSuffix}-${abi}"
-        def myCopyToAssetsTask = tasks.create(name: myCopyToAssetsTaskName, type: Copy) {
-            from stripDir
-            into assetsDir
-            include abi + '/execbar'
-            include abi + '/execbaz'
-            includeEmptyDirs = false
+        if (packStripped) {
+            def strippedToAssetsTaskName = "copyStrippedExecToAssets${taskSuffix}-${abi}"
+            def strippedToAssetsTask = tasks.create(name: strippedToAssetsTaskName, type: Copy) {
+                from stripDir
+                into assetsStrippedDir
+                include abi + '/execbar'
+                include abi + '/execbaz'
+                includeEmptyDirs = false
+            }
+            strippedToAssetsTask.dependsOn defNativeBuildTask
+            strippedToAssetsTask.dependsOn defStripTask
+            defGenerateAssetsTask.dependsOn strippedToAssetsTask
         }
-        myCopyToAssetsTask.dependsOn defStripTask
-        defPackageAssetsTask.dependsOn myCopyToAssetsTask
+        if (packNotstrip) {
+            def notstripToAssetsTaskName = "copyNotstripExecToAssets${taskSuffix}-${abi}"
+            def notstripToAssetsTask = tasks.create(name: notstripToAssetsTaskName, type: Copy) {
+                from objDir
+                into assetsNotstripDir
+                include abi + '/execbar'
+                include abi + '/execbaz'
+                includeEmptyDirs = false
+            }
+            notstripToAssetsTask.dependsOn defNativeBuildTask
+            // If not depend on defStripTask, than defStripTask will run after and delete our work
+            notstripToAssetsTask.dependsOn defStripTask
+            defGenerateAssetsTask.dependsOn notstripToAssetsTask
+        }
     }
 }
