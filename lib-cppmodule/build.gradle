@@ -125,3 +125,17 @@ android.libraryVariants.all { variant ->
         }
     }
 }
+
+task cppVersions {
+    File header = file('src/main/cpp/global_version.h')
+    inputs.property('globalVersion', globalVersion)
+    outputs.file header
+    doLast {
+        String template = "#ifndef %s%n#define %s%n%n#define %s \"%s\"%n%n#endif // %s"
+        def name = "GLOBAL_VERSION"
+        def guard = "_GLOBAS_VERSION_H_"
+        def version = 'UNZEN-VERSION-' + globalVersion
+        header.write(String.format(template, guard, guard, name, version, guard))
+    }
+}
+preBuild.dependsOn cppVersions

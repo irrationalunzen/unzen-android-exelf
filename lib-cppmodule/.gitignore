@@ -1,3 +1,4 @@
 /build
 /src/*/assets/exec-stripped
 /src/*/assets/exec-notstrip
+/src/main/cpp/global_version.h
