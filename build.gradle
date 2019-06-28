@@ -2,7 +2,7 @@
 
 buildscript {
     ext {
-        globalVersion = 1006
+        globalVersion = 1007
     }
     repositories {
         google()

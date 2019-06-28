@@ -40,27 +40,10 @@ public class MainActivity extends AppCompatActivity {
 
     static private class Report {
 
-        public final @NonNull String name;
-        public final @NonNull Map<String, Integer> abisToVers;
+        public final String name;
+        public final Map<String, Integer> abisToVers;
         public final long totalSize;
-
-        public String header() {
-            return format("%s %d", name, totalSize);
-        }
-
-        public String body() {
-            return format("%s%n%s", abisString(), TextUtils.join(" ", abisToVers.values()));
-        }
-
-        public String abisString() {
-            String text = TextUtils.join(" ", abisToVers.keySet());
-            return text.replace("x86_64", "x64").replace("x86", "x32")
-                    .replace("armeabi-v7a", "a32").replace("arm64-v8a", "a64");
-        }
-
-        public boolean isEmpty() {
-            return abisToVers.isEmpty();
-        }
+        public final int verFromOutput;
 
         public boolean versInSync(int version) {
             for (Integer v : abisToVers.values()) {
@@ -71,21 +54,67 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
 
-        private Report(@NonNull String name, @NonNull Map<String, Integer> abisToVers, long size) {
+        private String shortenAbisNames(String s) {
+            return s.replace("x86_64", "x64").replace("x86", "x32")
+                    .replace("armeabi-v7a", "a32").replace("arm64-v8a", "a64");
+        }
+
+        public String header() {
+            return format("%s v%d, %d B", name, verFromOutput, totalSize);
+        }
+
+        public String body() {
+            StringBuilder result = new StringBuilder();
+            for (Map.Entry<String, Integer> entry : abisToVers.entrySet()) {
+                if (result.length() > 0) {
+                    result.append(", ");
+                }
+                result.append(entry.getKey()).append(" ").append("v").append(entry.getValue());
+            }
+            return shortenAbisNames(result.toString());
+        }
+
+        public String abisString() {
+            return shortenAbisNames(TextUtils.join(" ", abisToVers.keySet()));
+        }
+
+        public String versString() {
+            StringBuilder result = new StringBuilder();
+            for (int ver : abisToVers.values()) {
+                if (result.length() > 0) {
+                    result.append(" ");
+                }
+                result.append("v").append(ver);
+            }
+            return result.toString();
+        }
+
+        @Override @NonNull
+        public String toString() {
+            return header() + "\n" + body();
+        }
+
+        private Report(String name, Map<String, Integer> abisToVers, long size, int verFromOutput) {
             this.name = name;
             this.abisToVers = abisToVers;
             this.totalSize = size;
+            this.verFromOutput = verFromOutput;
         }
 
-        private Report(@NonNull String name) {
+        private Report(String name) {
             this.name = name;
             this.abisToVers = Collections.emptyMap();
             this.totalSize = 0;
+            this.verFromOutput = 0;
         }
     }
 
-    static private String getExecOutput(String path) throws IOException {
-        ProcessBuilder builder = new ProcessBuilder(path);
+    static private String getExecOutput(File dir, String abi, String name) throws IOException {
+        File exec = new File(dir.getAbsolutePath() + "/" + abi + "/" + name);
+        if (!exec.setExecutable(true)) {
+            throw new IllegalStateException();
+        }
+        ProcessBuilder builder = new ProcessBuilder(exec.getAbsolutePath());
         Process process = builder.start();
         StringBuilder sb = new StringBuilder();
         try (InputStream stream = process.getInputStream()) {
@@ -101,14 +130,6 @@ public class MainActivity extends AppCompatActivity {
         return sb.toString();
     }
 
-    static private String getExecOutput(File dir, String abi, String name) throws IOException {
-        File exec = new File(dir.getAbsolutePath() + "/" + abi + "/" + name);
-        if (!exec.setExecutable(true)) {
-            throw new IllegalStateException();
-        }
-        return getExecOutput(exec.getAbsolutePath());
-    }
-
     static private void checkOutput(String elfName, String actualOut) {
         String expected = format("I'm %s! UNZEN-VERSION-", elfName);
         if (!actualOut.startsWith(expected)) {
@@ -117,7 +138,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    static private int parseVersion(File file) throws IOException {
+    static private int parseVerFromOutput(String output) {
+        return Integer.parseInt(output.substring(output.lastIndexOf("-") + 1));
+    }
+
+    static private int parseVerFromFile(File file) throws IOException {
         try (InputStream stream = new FileInputStream(file)) {
             BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
             // Search for string UNZEN-VERSION-XXXX in ELF file
@@ -150,14 +175,16 @@ public class MainActivity extends AppCompatActivity {
             if (files.length != 1 || !files[0].getName().equals(FOO)) {
                 throw new IllegalStateException();
             }
-            abisToVers.put(abiDir.getName(), parseVersion(files[0]));
+            abisToVers.put(abiDir.getName(), parseVerFromFile(files[0]));
             totalSize += files[0].length();
         }
-        checkOutput(FOO, CppModule.getStringFromJni());
-        return new Report(FOO, abisToVers, totalSize);
+        String output = CppModule.getStringFromJni();
+        checkOutput(FOO, output);
+        return new Report(FOO, abisToVers, totalSize, parseVerFromOutput(output));
     }
 
-    static private Report getExecReport(File assetsDir, String name) throws IOException {
+    static private Report getExecReport(File assetsDir) throws IOException {
+        String name = "execbarbaz";
         File dir = new File(assetsDir, name);
         if (!dir.exists()) {
             return new Report(name);
@@ -171,8 +198,8 @@ public class MainActivity extends AppCompatActivity {
             }
             File bar = new File(abiDir, BAR);
             File baz = new File(abiDir, BAZ);
-            int barVer = parseVersion(bar);
-            int bazVer = parseVersion(baz);
+            int barVer = parseVerFromFile(bar);
+            int bazVer = parseVerFromFile(baz);
             if (barVer != bazVer) {
                 throw new IllegalStateException();
             }
@@ -180,35 +207,41 @@ public class MainActivity extends AppCompatActivity {
             totalSize += bar.length();
             totalSize += baz.length();
         }
-        boolean outputChecked = false;
+        int verFromOutput = -1;
         for (String abi : ZenUtils.getSupportedAbis()) {
             if (!abisToVers.keySet().contains(abi)) {
                 continue;
             }
-            outputChecked = true;
-            for (String exec : BARBAZ) {
-                checkOutput(exec, getExecOutput(dir, abi, exec));
+            String barOut = getExecOutput(dir, abi, BAR);
+            checkOutput(BAR, barOut);
+            int barVer = parseVerFromOutput(barOut);
+            String bazOut = getExecOutput(dir, abi, BAZ);
+            checkOutput(BAZ, bazOut);
+            int bazVer = parseVerFromOutput(barOut);
+            if (barVer != bazVer) {
+                throw new IllegalStateException(format("%d != %d", barVer, bazVer));
             }
+            verFromOutput = barVer;
             break;
         }
-        if (!outputChecked) {
+        if (verFromOutput == -1) {
             throw new IllegalStateException();
         }
-        return new Report(name, abisToVers, totalSize);
+        return new Report(name, abisToVers, totalSize, verFromOutput);
     }
 
+    private TextView textView;
     private final ArrayList<String> messages = new ArrayList<>();
-    private final ArrayList<String> errors = new ArrayList<>();
 
     private void message(String m) {
         messages.add(m);
     }
 
-    private void error(String e) {
-        errors.add(e);
+    private void message(String format, Object... args) {
+        message(format(format, args));
     }
 
-    private void generateReport() throws Throwable {
+    private void displayReport() throws Throwable {
         File apkDir = new File(getCacheDir(), "unzen-apk");
         FileUtils.deleteDirectory(apkDir);
         if (apkDir.exists() || !apkDir.mkdirs()) {
@@ -218,44 +251,33 @@ public class MainActivity extends AppCompatActivity {
         apkZip.extractAll(apkDir.getAbsolutePath());
         Report jniReport = getJniReport(apkDir);
         File assetsDir = new File(apkDir, "assets");
-        Report strippedReport = getExecReport(assetsDir, "exec-stripped");
-        Report notstripReport = getExecReport(assetsDir, "exec-notstrip");
+        Report execReport = getExecReport(assetsDir);
 
         File dummy = new File(assetsDir, "dummy.txt");
         if (!dummy.exists() || dummy.length() == 0) {
             throw new IllegalStateException();
         }
 
-        if (strippedReport.totalSize > 0 && notstripReport.totalSize > 0) {
-            if (strippedReport.totalSize >= notstripReport.totalSize) {
-                error("strippedReport.totalSize >= notstripReport.totalSize");
-            }
-        }
+        boolean error = !jniReport.abisToVers.equals(execReport.abisToVers);
+        error = error || jniReport.verFromOutput != BuildConfig.VERSION_CODE_BASE;
+        error = error || execReport.verFromOutput != BuildConfig.VERSION_CODE_BASE;
 
-        boolean inSync = !jniReport.isEmpty() && jniReport.versInSync(BuildConfig.VERSION_CODE);
-        if (!strippedReport.isEmpty() && !notstripReport.isEmpty()) {
-            inSync = inSync && strippedReport.abisToVers.equals(notstripReport.abisToVers);
-        }
-        if (!strippedReport.isEmpty()) {
-            inSync = inSync && jniReport.abisToVers.equals(strippedReport.abisToVers);
-        }
-        if (!notstripReport.isEmpty()) {
-            inSync = inSync && jniReport.abisToVers.equals(notstripReport.abisToVers);
-        }
+        boolean warn = !jniReport.versInSync(BuildConfig.VERSION_CODE_BASE);
 
-        Report[] reports = {jniReport, strippedReport, notstripReport};
-        message(String.valueOf(BuildConfig.VERSION_CODE));
-        message("\n");
-        if (inSync) {
-            message(jniReport.abisString());
-            message("\n");
-        }
+        Report[] reports = {jniReport, execReport};
+        message("VERSION_CODE v%d", BuildConfig.VERSION_CODE);
+        message("VERSION_CODE_BASE v%d", BuildConfig.VERSION_CODE_BASE);
         for (Report report : reports) {
-            message(report.header());
-            if (!inSync) {
-                message(report.body());
-                message("\n");
-            }
+            message("\n");
+            message(report.toString());
+        }
+        textView.setText(TextUtils.join("\n", messages));
+        if (error) {
+            textView.setTextColor(0xffff0000);
+        } else if (warn) {
+            textView.setTextColor(0xfffc940a);
+        } else {
+            textView.setTextColor(0xff00ff55);
         }
     }
 
@@ -263,14 +285,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        TextView textView = findViewById(R.id.main_text);
+        textView = findViewById(R.id.main_text);
         try {
-            generateReport();
+            displayReport();
         } catch (Throwable e) {
             throw new RuntimeException(e);
         }
-        String errorsText = TextUtils.join("\n", errors);
-        String messagesText = TextUtils.join("\n", messages);
-        textView.setText(format("%s%n%n%s", errorsText, messagesText));
     }
 }

@@ -46,11 +46,7 @@ android {
 }
 
 android.libraryVariants.all { variant ->
-    def packStripped = true
-    def packNotstrip = true
-    def srcAssetsDirPath = 'src/main/assets'
-    def assetsStrippedDirName = 'exec-stripped'
-    def assetsNotstripDirName = 'exec-notstrip'
+    def srcAssetsDirPath = 'execbarbaz'
 
     def taskSuffix = variant.name.capitalize()
     def defNativeBuildTask = project.tasks['externalNativeBuild' + taskSuffix]
@@ -75,13 +71,11 @@ android.libraryVariants.all { variant ->
     def stripDir = transformsDir + 'stripDebugSymbol/' + variant.dirName + magicPath
     // <module>/build/intermediates/merged_assets/debug/mergeDebugAssets/out/${assetsDirName}
     //def assetsDir = "${intermediatesDir}merged_assets/${assetsDirSuffix}"
-    def assetsStrippedDir = "$modulePath/$srcAssetsDirPath/${assetsStrippedDirName}"
-    def assetsNotstripDir = "$modulePath/$srcAssetsDirPath/${assetsNotstripDirName}"
+    def assetsDir = "$modulePath/src/main/assets/$srcAssetsDirPath"
 
     defStripTask.outputs.upToDateWhen { false }
     defStripTask.doLast {
-        delete(assetsStrippedDir)
-        delete(assetsNotstripDir)
+        delete(assetsDir)
     }
 
     abis.each { abi ->
@@ -96,33 +90,17 @@ android.libraryVariants.all { variant ->
         myPrepareForStripTask.dependsOn defMergeJniTask
         defStripTask.dependsOn myPrepareForStripTask
 
-        if (packStripped) {
-            def strippedToAssetsTaskName = "copyStrippedExecToAssets${taskSuffix}-${abi}"
-            def strippedToAssetsTask = tasks.create(name: strippedToAssetsTaskName, type: Copy) {
-                from stripDir
-                into assetsStrippedDir
-                include abi + '/execbar'
-                include abi + '/execbaz'
-                includeEmptyDirs = false
-            }
-            strippedToAssetsTask.dependsOn defNativeBuildTask
-            strippedToAssetsTask.dependsOn defStripTask
-            defGenerateAssetsTask.dependsOn strippedToAssetsTask
+        def toAssetsTaskName = "copyExecToAssets${taskSuffix}-${abi}"
+        def toAssetsTask = tasks.create(name: toAssetsTaskName, type: Copy) {
+            from stripDir
+            into assetsDir
+            include abi + '/execbar'
+            include abi + '/execbaz'
+            includeEmptyDirs = false
         }
-        if (packNotstrip) {
-            def notstripToAssetsTaskName = "copyNotstripExecToAssets${taskSuffix}-${abi}"
-            def notstripToAssetsTask = tasks.create(name: notstripToAssetsTaskName, type: Copy) {
-                from objDir
-                into assetsNotstripDir
-                include abi + '/execbar'
-                include abi + '/execbaz'
-                includeEmptyDirs = false
-            }
-            notstripToAssetsTask.dependsOn defNativeBuildTask
-            // If not depend on defStripTask, than defStripTask will run after and delete our work
-            notstripToAssetsTask.dependsOn defStripTask
-            defGenerateAssetsTask.dependsOn notstripToAssetsTask
-        }
+        toAssetsTask.dependsOn defNativeBuildTask
+        toAssetsTask.dependsOn defStripTask
+        defGenerateAssetsTask.dependsOn toAssetsTask
     }
 }
 
