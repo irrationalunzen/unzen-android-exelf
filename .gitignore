@@ -32,3 +32,5 @@ Thumbs.db
 /.idea/shelf
 # Gradle:
 /.idea/gradle.xml
+
+/apks

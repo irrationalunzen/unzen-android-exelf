@@ -1,7 +1,5 @@
 apply plugin: 'com.android.library'
 
-def abis = ['armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64']
-
 android {
     compileSdkVersion 28
     buildToolsVersion "29.0.0"
@@ -27,14 +25,14 @@ android {
             jniDebuggable true
             debuggable = true
             ndk {
-                abiFilters = abis
+                abiFilters = baseAbis
             }
         }
         release {
             jniDebuggable false
             debuggable = false
             ndk {
-                abiFilters = abis
+                abiFilters = baseAbis
             }
         }
     }
@@ -46,73 +44,45 @@ android {
 }
 
 android.libraryVariants.all { variant ->
-    def srcAssetsDirPath = 'execbarbaz'
-
     def taskSuffix = variant.name.capitalize()
-    def defNativeBuildTask = project.tasks['externalNativeBuild' + taskSuffix]
     def defMergeJniTask = project.tasks['transformNativeLibsWithMergeJniLibsFor' + taskSuffix]
     def defStripTask = project.tasks['transformNativeLibsWithStripDebugSymbolFor' + taskSuffix]
-
     def defGenerateAssetsTask = project.tasks['generate' + taskSuffix + 'Assets']
     def defPackageAssetsTask = project.tasks['package' + taskSuffix + 'Assets']
-    // Doesn't runs in lib-cppmodule. Runs in app module after lib-cppmodule module have completed
-    // generateVariantAssets and packageVariantAssets.
-    def defMergeAssetsTask = project.tasks['merge' + taskSuffix + 'Assets']
 
-    def modulePath = projectDir.absolutePath
-    def intermediatesDir = "$project.buildDir.absolutePath/intermediates/"
+    def intermediatesDirPath = "$project.buildDir.absolutePath/intermediates"
     // <module>/build/intermediates/ndkBuild/debug/obj/local
-    def objDir = intermediatesDir + 'ndkBuild/' + variant.dirName + '/obj/local'
-    def transformsDir = intermediatesDir + 'transforms/'
-    def magicPath = '/0/lib'
+    def objDirPath = "$intermediatesDirPath/ndkBuild/$variant.dirName/obj/local"
     // <module>/build/intermediates/transforms/mergeJniLibs/debug/0/lib
-    def mergeDir = transformsDir + 'mergeJniLibs/' + variant.dirName + magicPath
-    // <module>/build/intermediates/transforms/stripDebugSymbol/debug/0/lib
-    def stripDir = transformsDir + 'stripDebugSymbol/' + variant.dirName + magicPath
-    // <module>/build/intermediates/merged_assets/debug/mergeDebugAssets/out/${assetsDirName}
-    //def assetsDir = "${intermediatesDir}merged_assets/${assetsDirSuffix}"
-    def assetsDir = "$modulePath/src/main/assets/$srcAssetsDirPath"
+    def mergeDirPath = "$intermediatesDirPath/transforms/mergeJniLibs/$variant.dirName/0/lib"
 
-    defStripTask.outputs.upToDateWhen { false }
-    defStripTask.doLast {
-        delete(assetsDir)
-    }
-
-    abis.each { abi ->
+    baseAbis.each { abi ->
         def myPrepareForStripTaskName = "prepareExecForStrip${taskSuffix}-${abi}"
         def myPrepareForStripTask = tasks.create(name: myPrepareForStripTaskName, type: Copy) {
-            from objDir
-            into mergeDir
+            from objDirPath
+            into mergeDirPath
             include abi + '/execbar'
             include abi + '/execbaz'
             includeEmptyDirs = false
         }
+        // Required, because without dependency defMergeJniTask will overwrite our work in
+        // mergeDirPath
         myPrepareForStripTask.dependsOn defMergeJniTask
         defStripTask.dependsOn myPrepareForStripTask
-
-        def toAssetsTaskName = "copyExecToAssets${taskSuffix}-${abi}"
-        def toAssetsTask = tasks.create(name: toAssetsTaskName, type: Copy) {
-            from stripDir
-            into assetsDir
-            include abi + '/execbar'
-            include abi + '/execbaz'
-            includeEmptyDirs = false
-        }
-        toAssetsTask.dependsOn defNativeBuildTask
-        toAssetsTask.dependsOn defStripTask
-        defGenerateAssetsTask.dependsOn toAssetsTask
+        defPackageAssetsTask.dependsOn defStripTask
     }
+    defStripTask.outputs.upToDateWhen { false }
 }
 
 task cppVersions {
     File header = file('src/main/cpp/global_version.h')
-    inputs.property('globalVersion', globalVersion)
+    inputs.property('globalVersion', baseVersion)
     outputs.file header
     doLast {
         String template = "#ifndef %s%n#define %s%n%n#define %s \"%s\"%n%n#endif // %s"
         def name = "GLOBAL_VERSION"
         def guard = "_GLOBAS_VERSION_H_"
-        def version = 'UNZEN-VERSION-' + globalVersion
+        def version = 'UNZEN-VERSION-' + baseVersion
         header.write(String.format(template, guard, guard, name, version, guard))
     }
 }

@@ -6,23 +6,138 @@ android {
         applicationId "unzen.android.test.cpp.exec"
         minSdkVersion 16
         targetSdkVersion 28
-        versionCode globalVersion
-        versionName "1.0"
+        versionCode baseVersion
+        versionName "$baseVersion"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         signingConfig signingConfigs.debug
-        buildConfigField("int", "VERSION_CODE_BASE", "${globalVersion}")
+        buildConfigField("int", "VERSION_CODE_BASE", "$baseVersion")
     }
     buildTypes {
-        release {
+        debug {
+            versionNameSuffix "D"
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        release {
+            versionNameSuffix "R"
+            minifyEnabled false
         }
     }
     compileOptions {
         sourceCompatibility = '1.8'
         targetCompatibility = '1.8'
     }
+
+    flavorDimensions "cpuAbi"
+
+    productFlavors {
+        x64 {
+            versionCode 4 + android.defaultConfig.versionCode
+            versionName "$versionCode+X64"
+            ndk {
+                abiFilters "x86_64"
+            }
+            ext {
+                abis = ["x86_64"]
+            }
+        }
+        x32 {
+            versionCode 3 + android.defaultConfig.versionCode
+            versionName "$versionCode+X32"
+            ndk {
+                abiFilters "x86"
+            }
+            ext {
+                abis = ["x86"]
+            }
+        }
+        a64 {
+            versionCode 2 + android.defaultConfig.versionCode
+            versionName "$versionCode+A64"
+            ndk {
+                abiFilters "arm64-v8a"
+            }
+            ext {
+                abis = ["arm64-v8a"]
+            }
+        }
+        a32 {
+            versionCode 1 + android.defaultConfig.versionCode
+            versionName "$versionCode+A32"
+            ndk {
+                abiFilters "armeabi-v7a"
+            }
+            ext {
+                abis = ["armeabi-v7a"]
+            }
+        }
+        fat {
+            versionCode android.defaultConfig.versionCode
+            versionName "$versionCode+FAT"
+            ndk {
+                abiFilters = baseAbis
+            }
+            ext {
+                abis = baseAbis
+            }
+        }
+    }
+    variantFilter { variant ->
+        def names = variant.flavors*.name
+        if (variant.buildType.name != "release" && !names.contains("fat")) {
+            setIgnore(true)
+        }
+    }
 }
+
+android.applicationVariants.all { variant ->
+    def srcAssetsDirPath = 'execbarbaz'
+
+    def taskSuffix = variant.name.capitalize()
+    def defMergeAssetsTask = project.tasks['merge' + taskSuffix + 'Assets']
+
+    // Prepare input dir path
+    def execModuleBuildDirPath = rootDir.absolutePath + "/lib-cppmodule/build"
+    def transformsDir = "$execModuleBuildDirPath/intermediates/transforms/"
+    // <module>/build/intermediates/transforms/stripDebugSymbol/debug/0/lib
+    def stripDir = transformsDir + 'stripDebugSymbol/' + variant.getBuildType().name + '/0/lib'
+
+    // Prepare output dir path
+    def intermediatesDir = "$project.buildDir.absolutePath/intermediates/"
+    // <module>/build/intermediates/merged_assets/debug/out/${srcAssetsDirPath}
+    def assetsDir = "$intermediatesDir/merged_assets/$variant.name/out/$srcAssetsDirPath"
+
+    variant.productFlavors.get(0).abis.each { abi ->
+        def toAssetsTaskName = "copyExecToAssets${taskSuffix}-${abi}"
+        def toAssetsTask = tasks.create(name: toAssetsTaskName, type: Copy) {
+            from stripDir
+            into assetsDir
+            include abi + '/execbar'
+            include abi + '/execbaz'
+            includeEmptyDirs = false
+        }
+        defMergeAssetsTask.finalizedBy toAssetsTask
+    }
+    defMergeAssetsTask.outputs.upToDateWhen { false }
+    defMergeAssetsTask.doLast {
+        delete(assetsDir)
+    }
+    variant.outputs.all { output ->
+        outputFileName = "cppexec-${variant.versionName}.apk"
+    }
+}
+
+task alephCopyApks(type: Copy) {
+    group = "aleph"
+    from "build/outputs/apk/fat/debug"
+    from "build/outputs/apk/fat/release"
+    from "build/outputs/apk/a32/release"
+    from "build/outputs/apk/a64/release"
+    from "build/outputs/apk/x32/release"
+    from "build/outputs/apk/x64/release"
+    include "*.apk"
+    into "$rootDir.absolutePath/apks"
+}
+assemble.finalizedBy alephCopyApks
 
 dependencies {
     implementation project(path: ':lib-cppmodule')

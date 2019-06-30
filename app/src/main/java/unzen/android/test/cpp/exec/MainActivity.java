@@ -1,5 +1,6 @@
 package unzen.android.test.cpp.exec;
 
+import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.widget.TextView;
@@ -22,13 +23,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
 import unzen.android.test.cpp.exec.cppmodule.CppModule;
-import unzen.android.test.cpp.exec.utils.ZenUtils;
-
-import static unzen.android.test.cpp.exec.utils.L.format;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -54,13 +53,13 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
 
+        public String header() {
+            return format("%s v%d, %d B", name, verFromOutput, totalSize);
+        }
+
         private String shortenAbisNames(String s) {
             return s.replace("x86_64", "x64").replace("x86", "x32")
                     .replace("armeabi-v7a", "a32").replace("arm64-v8a", "a64");
-        }
-
-        public String header() {
-            return format("%s v%d, %d B", name, verFromOutput, totalSize);
         }
 
         public String body() {
@@ -72,21 +71,6 @@ public class MainActivity extends AppCompatActivity {
                 result.append(entry.getKey()).append(" ").append("v").append(entry.getValue());
             }
             return shortenAbisNames(result.toString());
-        }
-
-        public String abisString() {
-            return shortenAbisNames(TextUtils.join(" ", abisToVers.keySet()));
-        }
-
-        public String versString() {
-            StringBuilder result = new StringBuilder();
-            for (int ver : abisToVers.values()) {
-                if (result.length() > 0) {
-                    result.append(" ");
-                }
-                result.append("v").append(ver);
-            }
-            return result.toString();
         }
 
         @Override @NonNull
@@ -106,6 +90,19 @@ public class MainActivity extends AppCompatActivity {
             this.abisToVers = Collections.emptyMap();
             this.totalSize = 0;
             this.verFromOutput = 0;
+        }
+    }
+
+    static private String format(String format, Object... args) {
+        return String.format(Locale.US, format, args);
+    }
+
+    @SuppressWarnings("deprecation")
+    static private String[] getSupportedAbis() {
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.LOLLIPOP) {
+            return Build.SUPPORTED_ABIS;
+        } else {
+            return new String[]{Build.CPU_ABI, Build.CPU_ABI2};
         }
     }
 
@@ -208,7 +205,7 @@ public class MainActivity extends AppCompatActivity {
             totalSize += baz.length();
         }
         int verFromOutput = -1;
-        for (String abi : ZenUtils.getSupportedAbis()) {
+        for (String abi : getSupportedAbis()) {
             if (!abisToVers.keySet().contains(abi)) {
                 continue;
             }
@@ -257,16 +254,25 @@ public class MainActivity extends AppCompatActivity {
         if (!dummy.exists() || dummy.length() == 0) {
             throw new IllegalStateException();
         }
+        File dummyLib = new File(assetsDir, "dummy-lib.txt");
+        if (!dummyLib.exists() || dummyLib.length() == 0) {
+            throw new IllegalStateException();
+        }
 
         boolean error = !jniReport.abisToVers.equals(execReport.abisToVers);
+        error = error || !Arrays.asList(1, 4).contains(jniReport.abisToVers.size());
         error = error || jniReport.verFromOutput != BuildConfig.VERSION_CODE_BASE;
         error = error || execReport.verFromOutput != BuildConfig.VERSION_CODE_BASE;
+        //noinspection ConstantConditions
+        if (BuildConfig.VERSION_CODE_BASE != BuildConfig.VERSION_CODE) {
+            error = error || jniReport.abisToVers.size() != 1;
+        }
 
         boolean warn = !jniReport.versInSync(BuildConfig.VERSION_CODE_BASE);
 
         Report[] reports = {jniReport, execReport};
-        message("VERSION_CODE v%d", BuildConfig.VERSION_CODE);
-        message("VERSION_CODE_BASE v%d", BuildConfig.VERSION_CODE_BASE);
+        message("Java v%s", BuildConfig.VERSION_NAME);
+        message("Cpp v%d", BuildConfig.VERSION_CODE_BASE);
         for (Report report : reports) {
             message("\n");
             message(report.toString());
