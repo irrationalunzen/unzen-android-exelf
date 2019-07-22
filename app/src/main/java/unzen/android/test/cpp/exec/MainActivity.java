@@ -229,6 +229,7 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView textView;
     private final ArrayList<String> messages = new ArrayList<>();
+    private final ArrayList<String> warns = new ArrayList<>();
 
     private void message(String m) {
         messages.add(m);
@@ -238,6 +239,15 @@ public class MainActivity extends AppCompatActivity {
         message(format(format, args));
     }
 
+    private void warn(String m) {
+        warns.add(m);
+    }
+
+    private void warn(String format, Object... args) {
+        warn(format(format, args));
+    }
+
+    @SuppressWarnings("ConstantConditions")
     private void displayReport() throws Throwable {
         File apkDir = new File(getCacheDir(), "unzen-apk");
         FileUtils.deleteDirectory(apkDir);
@@ -260,15 +270,37 @@ public class MainActivity extends AppCompatActivity {
         }
 
         boolean error = !jniReport.abisToVers.equals(execReport.abisToVers);
-        error = error || !Arrays.asList(1, 4).contains(jniReport.abisToVers.size());
         error = error || jniReport.verFromOutput != BuildConfig.VERSION_CODE_BASE;
         error = error || execReport.verFromOutput != BuildConfig.VERSION_CODE_BASE;
-        //noinspection ConstantConditions
-        if (BuildConfig.VERSION_CODE_BASE != BuildConfig.VERSION_CODE) {
+        if (BuildConfig.FLAVOR.equals("fat")) {
+            error = error || !Arrays.asList(1, 2, 3, 4).contains(jniReport.abisToVers.size());
+            error = error || BuildConfig.VERSION_CODE != BuildConfig.VERSION_CODE_BASE;
+        } else {
             error = error || jniReport.abisToVers.size() != 1;
+            if (BuildConfig.FLAVOR.equals("a32")) {
+                error = error || BuildConfig.VERSION_CODE != BuildConfig.VERSION_CODE_BASE + 1;
+            } else if (BuildConfig.FLAVOR.equals("a64")) {
+                error = error || BuildConfig.VERSION_CODE != BuildConfig.VERSION_CODE_BASE + 2;
+            } else if (BuildConfig.FLAVOR.equals("x32")) {
+                error = error || BuildConfig.VERSION_CODE != BuildConfig.VERSION_CODE_BASE + 3;
+            } else if (BuildConfig.FLAVOR.equals("x64")) {
+                error = error || BuildConfig.VERSION_CODE != BuildConfig.VERSION_CODE_BASE + 4;
+            }
         }
 
-        boolean warn = !jniReport.versInSync(BuildConfig.VERSION_CODE_BASE);
+        if (!jniReport.versInSync(BuildConfig.VERSION_CODE_BASE)) {
+            warn("Versions between ABIs doesn't match. That's may be due to build performed by"
+                    + " Android Studio's \"Run\" action, that makes new build only for ABI of"
+                    + " the \"Run\" target's device.");
+        }
+        if (BuildConfig.FLAVOR.equals("fat")) {
+            if (jniReport.abisToVers.size() != 4) {
+                warn("Flavor \"fat\" has only %d ABIs, expected 4 ABIs. That's may be due to"
+                        + " build performed by Android Studio's \"Run\" action, that makes"
+                        + " new build only for ABI of the \"Run\" target's device.",
+                        jniReport.abisToVers.size());
+            }
+        }
 
         Report[] reports = {jniReport, execReport};
         message("Java v%s", BuildConfig.VERSION_NAME);
@@ -277,10 +309,14 @@ public class MainActivity extends AppCompatActivity {
             message("\n");
             message(report.toString());
         }
-        textView.setText(TextUtils.join("\n", messages));
+        String text = TextUtils.join("\n", messages);
+        if (!error && !warns.isEmpty()) {
+            text = format("%s%n%n%nWARNINGS%n%n%s", text, TextUtils.join("\n\n", warns));
+        }
+        textView.setText(text);
         if (error) {
             textView.setTextColor(0xffff0000);
-        } else if (warn) {
+        } else if (!warns.isEmpty()) {
             textView.setTextColor(0xfffc940a);
         } else {
             textView.setTextColor(0xff00ff55);
