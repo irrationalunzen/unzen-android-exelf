@@ -2,7 +2,6 @@ apply plugin: 'com.android.library'
 
 android {
     compileSdkVersion 28
-    buildToolsVersion "29.0.0"
     defaultConfig {
         minSdkVersion 16
         targetSdkVersion 28
@@ -12,12 +11,6 @@ android {
             ndkBuild {
                 targets 'jnifoo', 'execbar', 'execbaz'
             }
-        }
-    }
-    buildTypes {
-        release {
-            jniDebuggable false
-            debuggable = false
         }
     }
     buildTypes {
