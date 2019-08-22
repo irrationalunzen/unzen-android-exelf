@@ -97,20 +97,20 @@ android.applicationVariants.all { variant ->
 
     // Prepare input dir path
     def execModuleBuildDirPath = rootDir.absolutePath + "/lib-cppmodule/build"
-    def transformsDir = "$execModuleBuildDirPath/intermediates/transforms"
-    // <module>/build/intermediates/transforms/stripDebugSymbol/debug/0/lib
-    def stripDir = "$transformsDir/stripDebugSymbol/${variant.getBuildType().name}/0/lib"
+    def strippedRootDirPath = "$execModuleBuildDirPath/intermediates/stripped_native_libs"
+    // <module>/build/intermediates/stripped_native_libs/debug/out/lib
+    def strippedVariantDirPath = "$strippedRootDirPath/${variant.getBuildType().name}/out/lib"
 
     // Prepare output dir path
-    def intermediatesDir = "$project.buildDir.absolutePath/intermediates/"
+    def intermediatesDirPath = "$project.buildDir.absolutePath/intermediates/"
     // <module>/build/intermediates/merged_assets/debug/out/${srcAssetsDirPath}
-    def assetsDir = "$intermediatesDir/merged_assets/$variant.name/out/$srcAssetsDirPath"
+    def assetsDirPath = "$intermediatesDirPath/merged_assets/$variant.name/out/$srcAssetsDirPath"
 
     variant.productFlavors.get(0).abis.each { abi ->
         def toAssetsTaskName = "copyExecToAssets${taskSuffix}-${abi}"
         def toAssetsTask = tasks.create(name: toAssetsTaskName, type: Copy) {
-            from stripDir
-            into assetsDir
+            from strippedVariantDirPath
+            into assetsDirPath
             include abi + '/execbar'
             include abi + '/execbaz'
             includeEmptyDirs = false
@@ -119,7 +119,7 @@ android.applicationVariants.all { variant ->
     }
     defMergeAssetsTask.outputs.upToDateWhen { false }
     defMergeAssetsTask.doLast {
-        delete(assetsDir)
+        delete(assetsDirPath)
     }
     variant.outputs.all { output ->
         outputFileName = "cppexec-${variant.versionName}.apk"

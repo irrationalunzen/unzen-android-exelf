@@ -38,28 +38,28 @@ android {
 
 android.libraryVariants.all { variant ->
     def taskSuffix = variant.name.capitalize()
-    def defMergeJniTask = project.tasks['transformNativeLibsWithMergeJniLibsFor' + taskSuffix]
-    def defStripTask = project.tasks['transformNativeLibsWithStripDebugSymbolFor' + taskSuffix]
+    def defMergeJniTask = project.tasks["merge${taskSuffix}NativeLibs"]
+    def defStripTask = project.tasks["strip${taskSuffix}DebugSymbols"]
     def defGenerateAssetsTask = project.tasks['generate' + taskSuffix + 'Assets']
     def defPackageAssetsTask = project.tasks['package' + taskSuffix + 'Assets']
 
     def intermediatesDirPath = "$project.buildDir.absolutePath/intermediates"
     // <module>/build/intermediates/ndkBuild/debug/obj/local
     def objDirPath = "$intermediatesDirPath/ndkBuild/$variant.dirName/obj/local"
-    // <module>/build/intermediates/transforms/mergeJniLibs/debug/0/lib
-    def mergeDirPath = "$intermediatesDirPath/transforms/mergeJniLibs/$variant.dirName/0/lib"
+    // <module>/build/intermediates/merged_native_libs/debug/out/lib
+    def mergedDirPath = "$intermediatesDirPath/merged_native_libs/$variant.dirName/out/lib"
 
     baseAbis.each { abi ->
         def myPrepareForStripTaskName = "prepareExecForStrip${taskSuffix}-${abi}"
         def myPrepareForStripTask = tasks.create(name: myPrepareForStripTaskName, type: Copy) {
             from objDirPath
-            into mergeDirPath
+            into mergedDirPath
             include abi + '/execbar'
             include abi + '/execbaz'
             includeEmptyDirs = false
         }
         // Required, because without dependency defMergeJniTask will overwrite our work in
-        // mergeDirPath
+        // mergedDirPath
         myPrepareForStripTask.dependsOn defMergeJniTask
         defStripTask.dependsOn myPrepareForStripTask
         defPackageAssetsTask.dependsOn defStripTask
