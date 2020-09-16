@@ -8,8 +8,6 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
-import net.lingala.zip4j.core.ZipFile;
-
 import org.apache.commons.io.FileUtils;
 
 import java.io.BufferedReader;
@@ -97,7 +95,6 @@ public class MainActivity extends AppCompatActivity {
         return String.format(Locale.US, format, args);
     }
 
-    @SuppressWarnings("deprecation")
     static private String[] getSupportedAbis() {
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.LOLLIPOP) {
             return Build.SUPPORTED_ABIS;
@@ -206,7 +203,7 @@ public class MainActivity extends AppCompatActivity {
         }
         int verFromOutput = -1;
         for (String abi : getSupportedAbis()) {
-            if (!abisToVers.keySet().contains(abi)) {
+            if (!abisToVers.containsKey(abi)) {
                 continue;
             }
             String barOut = getExecOutput(dir, abi, BAR);
@@ -254,8 +251,7 @@ public class MainActivity extends AppCompatActivity {
         if (apkDir.exists() || !apkDir.mkdirs()) {
             throw new IllegalStateException();
         }
-        ZipFile apkZip = new ZipFile(new File(getPackageResourcePath()));
-        apkZip.extractAll(apkDir.getAbsolutePath());
+        ZipUtils.extract(new File(getPackageResourcePath()), apkDir);
         Report jniReport = getJniReport(apkDir);
         File assetsDir = new File(apkDir, "assets");
         Report execReport = getExecReport(assetsDir);
