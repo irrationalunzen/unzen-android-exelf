@@ -1,14 +1,10 @@
 package unzen.android.test.cpp.exec;
 
+import android.app.Activity;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.widget.TextView;
-
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-
-import org.apache.commons.io.FileUtils;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -27,7 +23,7 @@ import java.util.Set;
 
 import unzen.android.test.cpp.exec.cppmodule.CppModule;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends Activity {
 
     static private final String FOO_NAME = "jnifoo";
     static private final String FOO = "lib" + FOO_NAME + ".so";
@@ -71,7 +67,7 @@ public class MainActivity extends AppCompatActivity {
             return shortenAbisNames(result.toString());
         }
 
-        @Override @NonNull
+        @Override
         public String toString() {
             return header() + "\n" + body();
         }
