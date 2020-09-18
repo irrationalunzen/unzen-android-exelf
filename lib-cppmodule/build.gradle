@@ -1,7 +1,7 @@
 apply plugin: 'com.android.library'
 
 android {
-    compileSdkVersion 28
+    compileSdkVersion 29
     ndkVersion "21.3.6528147"
     defaultConfig {
         minSdkVersion 16
@@ -41,7 +41,6 @@ android.libraryVariants.all { variant ->
     def taskSuffix = variant.name.capitalize()
     def defMergeJniTask = project.tasks["merge${taskSuffix}NativeLibs"]
     def defStripTask = project.tasks["strip${taskSuffix}DebugSymbols"]
-    def defGenerateAssetsTask = project.tasks['generate' + taskSuffix + 'Assets']
     def defPackageAssetsTask = project.tasks['package' + taskSuffix + 'Assets']
 
     def intermediatesDirPath = "$project.buildDir.absolutePath/intermediates"
@@ -50,22 +49,20 @@ android.libraryVariants.all { variant ->
     // <module>/build/intermediates/merged_native_libs/debug/out/lib
     def mergedDirPath = "$intermediatesDirPath/merged_native_libs/$variant.dirName/out/lib"
 
-    baseAbis.each { abi ->
-        def myPrepareForStripTaskName = "prepareExecForStrip${taskSuffix}-${abi}"
-        def myPrepareForStripTask = tasks.create(name: myPrepareForStripTaskName, type: Copy) {
-            from objDirPath
-            into mergedDirPath
+    def prepareForStripTaskName = "prepareExecForStrip${taskSuffix}"
+    def prepareForStripTask = tasks.create(name: prepareForStripTaskName, type: Copy) {
+        from objDirPath
+        into mergedDirPath
+        baseAbis.each { abi ->
             include abi + '/execbar'
             include abi + '/execbaz'
-            includeEmptyDirs = false
         }
-        // Required, because without dependency defMergeJniTask will overwrite our work in
-        // mergedDirPath
-        myPrepareForStripTask.dependsOn defMergeJniTask
-        defStripTask.dependsOn myPrepareForStripTask
-        defPackageAssetsTask.dependsOn defStripTask
+        includeEmptyDirs = false
     }
-    defStripTask.outputs.upToDateWhen { false }
+    // Without dependency defMergeJniTask will overwrite our work in mergedDirPath
+    prepareForStripTask.dependsOn defMergeJniTask
+    defStripTask.dependsOn prepareForStripTask
+    defPackageAssetsTask.dependsOn defStripTask
 }
 
 task cppVersions {

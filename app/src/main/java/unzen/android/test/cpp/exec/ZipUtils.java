@@ -1,7 +1,5 @@
 package unzen.android.test.cpp.exec;
 
-import android.util.Log;
-
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -33,7 +31,7 @@ public class ZipUtils {
                 throw new IOException("parent.mkdirs() fail " + entry.getName());
             }
         }
-        Log.i("AAA", "f: " + f.getAbsolutePath() + ", entry: " + entry.getName());
+        //Log.i("ZipUtils", "extractEntry: " + f.getAbsolutePath() + ", entry: " + entry.getName());
         try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(f))) {
             byte[] buf = new byte[4096];
             int read;

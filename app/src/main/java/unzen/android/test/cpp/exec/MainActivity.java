@@ -91,6 +91,8 @@ public class MainActivity extends Activity {
         return String.format(Locale.US, format, args);
     }
 
+    // Suppress warnings for Gradle build output
+    @SuppressWarnings("deprecation")
     static private String[] getSupportedAbis() {
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.LOLLIPOP) {
             return Build.SUPPORTED_ABIS;

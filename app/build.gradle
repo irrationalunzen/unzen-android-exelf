@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 28
+    compileSdkVersion 29
     ndkVersion "21.3.6528147"
     defaultConfig {
         applicationId "unzen.android.test.cpp.exec"
@@ -92,7 +92,6 @@ android {
 
 android.applicationVariants.all { variant ->
     def srcAssetsDirPath = 'execbarbaz'
-
     def taskSuffix = variant.name.capitalize()
     def defMergeAssetsTask = project.tasks['merge' + taskSuffix + 'Assets']
 
@@ -101,27 +100,26 @@ android.applicationVariants.all { variant ->
     def strippedRootDirPath = "$execModuleBuildDirPath/intermediates/stripped_native_libs"
     // <module>/build/intermediates/stripped_native_libs/debug/out/lib
     def strippedVariantDirPath = "$strippedRootDirPath/${variant.getBuildType().name}/out/lib"
-
     // Prepare output dir path
-    def intermediatesDirPath = "$project.buildDir.absolutePath/intermediates/"
+    def intermedDirPath = "$project.buildDir.absolutePath/intermediates/"
     // <module>/build/intermediates/merged_assets/debug/out/${srcAssetsDirPath}
-    def assetsDirPath = "$intermediatesDirPath/merged_assets/$variant.name/out/$srcAssetsDirPath"
+    def assetsDirPath = "$intermedDirPath/merged_assets/$variant.name/out/$srcAssetsDirPath"
 
-    variant.productFlavors.get(0).abis.each { abi ->
-        def toAssetsTaskName = "copyExecToAssets${taskSuffix}-${abi}"
-        def toAssetsTask = tasks.create(name: toAssetsTaskName, type: Copy) {
-            from strippedVariantDirPath
-            into assetsDirPath
+    def toAssetsTaskName = "copyExecToAssets${taskSuffix}"
+    def toAssetsTask = tasks.create(name: toAssetsTaskName, type: Copy) {
+        from strippedVariantDirPath
+        into assetsDirPath
+        variant.productFlavors.get(0).abis.each { abi ->
             include abi + '/execbar'
             include abi + '/execbaz'
-            includeEmptyDirs = false
         }
-        defMergeAssetsTask.finalizedBy toAssetsTask
+        includeEmptyDirs = false
     }
-    defMergeAssetsTask.outputs.upToDateWhen { false }
+    defMergeAssetsTask.finalizedBy toAssetsTask
     defMergeAssetsTask.doLast {
         delete(assetsDirPath)
     }
+
     variant.outputs.all { output ->
         outputFileName = "cppexec-${variant.versionName}.apk"
     }
