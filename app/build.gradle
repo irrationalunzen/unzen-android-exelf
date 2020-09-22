@@ -167,6 +167,7 @@ task alephCopyApks(type: Copy) {
 assemble.finalizedBy alephCopyApks
 
 dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation project(path: ':lib-cppmodule')
     testImplementation 'junit:junit:4.13'
     androidTestImplementation 'androidx.test.ext:junit:1.1.2'

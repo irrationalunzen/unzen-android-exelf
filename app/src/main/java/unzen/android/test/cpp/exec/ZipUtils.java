@@ -1,37 +1,46 @@
 package unzen.android.test.cpp.exec;
 
+import android.util.Log;
+
+import org.apache.commons.compress.archivers.ArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
+
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
+/**
+ * Using Apache Commons Compress instead of system ZIP because system ZIP
+ * fails to unpack APK on old Android versions.
+ */
 public class ZipUtils {
 
-    static private void extractEntry(ZipInputStream src, File dst, ZipEntry entry) throws IOException {
-        if (entry.getName().equals("")) {
-            //TODO: special stuff in Android APK?
-            return;
-        }
-        File f = new File(dst, entry.getName());
-        if (entry.isDirectory()) {
+    static private final boolean DEBUG = false;
+    static private final String TAG = "ZipUtils";
+
+    static private void extractEntry(ZipArchiveInputStream src, File dst, ArchiveEntry e)
+            throws IOException {
+        File f = new File(dst, e.getName());
+        if (e.isDirectory()) {
             if (!f.mkdirs()) {
-                throw new IOException("mkdirs() fail " + entry.getName());
+                throw new IOException("mkdirs() fail " + e.getName());
             }
             return;
         }
         File parent = f.getParentFile();
         if (parent == null) {
-            throw new IOException("getParentFile() fail " + entry.getName());
+            throw new IOException("getParentFile() fail " + e.getName());
         }
         if (!parent.exists()) {
             if (!parent.mkdirs()) {
-                throw new IOException("parent.mkdirs() fail " + entry.getName());
+                throw new IOException("parent.mkdirs() fail " + e.getName());
             }
         }
-        //Log.i("ZipUtils", "extractEntry: " + f.getAbsolutePath() + ", entry: " + entry.getName());
+        if (DEBUG) {
+            Log.i(TAG, "extractEntry: " + f.getAbsolutePath() + ", e: " + e.getName());
+        }
         try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(f))) {
             byte[] buf = new byte[4096];
             int read;
@@ -41,12 +50,24 @@ public class ZipUtils {
         }
     }
 
+    static private ArchiveEntry nextEntry(ZipArchiveInputStream zis) throws IOException {
+        ArchiveEntry e = zis.getNextEntry();
+        if (e != null && "".equals(e.getName())) {
+            // Skip special stuff in Android APK.
+            if (DEBUG) {
+                Log.i(TAG, "Skip special stuff in Android APK");
+            }
+            return nextEntry(zis);
+        }
+        return e;
+    }
+
     static public void extract(File src, File dst) throws IOException {
-        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(src))) {
-            ZipEntry entry = zis.getNextEntry();
+        try (ZipArchiveInputStream zis = new ZipArchiveInputStream(new FileInputStream(src))) {
+            ArchiveEntry entry = nextEntry(zis);
             while (entry != null) {
                 extractEntry(zis, dst, entry);
-                entry = zis.getNextEntry();
+                entry = nextEntry(zis);
             }
         }
     }
