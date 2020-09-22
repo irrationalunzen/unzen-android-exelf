@@ -125,6 +125,34 @@ android.applicationVariants.all { variant ->
     }
 }
 
+gradle.taskGraph.afterTask { task ->
+    // Prints all tasks info, inputs and outputs
+    if (true) {
+        return
+    }
+    // Allows to print only tasks that match some criteria
+    boolean hit = true
+    StringBuffer taskInfo = new StringBuffer()
+    taskInfo << "Unzen task info:"
+    taskInfo << " $task.name, $task.group, $task.description"
+    taskInfo << ", $task.convention.plugins"
+    task.inputs.files.eachWithIndex { it, i ->
+        if (it.absolutePath.contains("java_res")) {
+            hit = true
+        }
+        taskInfo << "\nI: ${it.absolutePath}"
+    }
+    task.outputs.files.eachWithIndex { it, i ->
+        if (it.absolutePath.contains("java_res")) {
+            hit = true
+        }
+        taskInfo << "\nO: ${it.absolutePath}"
+    }
+    if (hit) {
+        println taskInfo
+    }
+}
+
 task alephCopyApks(type: Copy) {
     group = "aleph"
     from "build/outputs/apk/fat/debug"
