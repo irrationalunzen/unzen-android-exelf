@@ -92,8 +92,8 @@ android {
 
 android.applicationVariants.all { variant ->
     def srcAssetsDirPath = 'execbarbaz'
-    def taskSuffix = variant.name.capitalize()
-    def defMergeAssetsTask = project.tasks['merge' + taskSuffix + 'Assets']
+    def capitalizedName = variant.name.capitalize()
+    def defMergeAssetsTask = project.tasks['merge' + capitalizedName + 'Assets']
 
     // Prepare input dir path
     def execModuleBuildDirPath = rootDir.absolutePath + "/lib-cppmodule/build"
@@ -105,7 +105,7 @@ android.applicationVariants.all { variant ->
     // <module>/build/intermediates/merged_assets/debug/out/${srcAssetsDirPath}
     def assetsDirPath = "$intermedDirPath/merged_assets/$variant.name/out/$srcAssetsDirPath"
 
-    def toAssetsTaskName = "copyExecToAssets${taskSuffix}"
+    def toAssetsTaskName = "copyExecToAssets${capitalizedName}"
     def toAssetsTask = tasks.create(name: toAssetsTaskName, type: Copy) {
         from strippedVariantDirPath
         into assetsDirPath

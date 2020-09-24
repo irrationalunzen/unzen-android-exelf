@@ -14,10 +14,12 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Objects;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static unzen.android.test.cpp.exec.FileUtils.fileListedInDir;
 
 /**
  * Looks like creating hard links without root was disabled since Android M.
@@ -53,17 +55,7 @@ public class FileLinkTest {
                 e.printStackTrace();
             }
         }
-        return false;
-    }
-
-    private boolean fileListedInDir(File dir, File file) {
-        File[] list = dir.listFiles();
-        assertNotNull(list);
-        for (File fileInDir : list) {
-            if (fileInDir.getAbsolutePath().equals(file.getAbsolutePath())) {
-                return true;
-            }
-        }
+        assertFalse(fileListedInDir(Objects.requireNonNull(link.getParentFile()), link));
         return false;
     }
 
@@ -71,13 +63,13 @@ public class FileLinkTest {
     public void test() throws IOException, InterruptedException {
         // Context of the app under test.
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        File normalDir = context.getFilesDir();
-
-        File link = new File(normalDir, "link");
+        File dir = context.getFilesDir();
+        File link = new File(dir, "link");
+        assertEquals(dir.getAbsolutePath(), link.getParent());
         assertTrue(!link.exists() || link.delete());
         assertFalse(link.exists());
-
-        File normalFile = new File(normalDir, "temp");
+        assertFalse(fileListedInDir(dir, link));
+        File normalFile = new File(dir, "temp");
         assertTrue(!normalFile.exists() || normalFile.delete());
         assertTrue(normalFile.createNewFile());
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -86,16 +78,17 @@ public class FileLinkTest {
             // This test branch succeed on Xiaomi Redmi Note 8 Pro with MIUI Android 9
             assertFalse(link(normalFile.getAbsolutePath(), link.getAbsolutePath()));
             assertFalse(link.exists());
-            assertFalse(fileListedInDir(normalDir, link));
+            assertFalse(fileListedInDir(dir, link));
             assertFalse(link.delete());
         } else {
             // This test branch succeed on emulator with API 17 and API 16
             assertTrue(link(normalFile.getAbsolutePath(), link.getAbsolutePath()));
             assertTrue(link.exists());
-            assertTrue(fileListedInDir(normalDir, link));
+            assertTrue(fileListedInDir(dir, link));
             assertTrue(link.delete());
-            assertFalse(fileListedInDir(normalDir, link));
+            assertFalse(fileListedInDir(dir, link));
             assertFalse(link.exists());
+            assertEquals(dir.getAbsolutePath(), link.getParent());
         }
     }
 }

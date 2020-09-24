@@ -3,6 +3,7 @@ package unzen.android.test.cpp.exec;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Objects;
 
 /**
  * Some methods copied from Apache Commons IO.
@@ -154,5 +155,14 @@ public class FileUtils {
             final String message = "Unable to delete directory " + directory + ".";
             throw new IOException(message);
         }
+    }
+
+    static public boolean fileListedInDir(File dir, File file) {
+        for (File fileInDir : Objects.requireNonNull(dir.listFiles())) {
+            if (fileInDir.getAbsolutePath().equals(file.getAbsolutePath())) {
+                return true;
+            }
+        }
+        return false;
     }
 }

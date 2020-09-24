@@ -38,10 +38,10 @@ android {
 }
 
 android.libraryVariants.all { variant ->
-    def taskSuffix = variant.name.capitalize()
-    def defMergeJniTask = project.tasks["merge${taskSuffix}NativeLibs"]
-    def defStripTask = project.tasks["strip${taskSuffix}DebugSymbols"]
-    def defPackageAssetsTask = project.tasks['package' + taskSuffix + 'Assets']
+    def capitalizedName = variant.name.capitalize()
+    def defMergeJniTask = project.tasks["merge${capitalizedName}NativeLibs"]
+    def defStripTask = project.tasks["strip${capitalizedName}DebugSymbols"]
+    def defPackageAssetsTask = project.tasks['package' + capitalizedName + 'Assets']
 
     def intermediatesDirPath = "$project.buildDir.absolutePath/intermediates"
     // <module>/build/intermediates/ndkBuild/debug/obj/local
@@ -49,7 +49,7 @@ android.libraryVariants.all { variant ->
     // <module>/build/intermediates/merged_native_libs/debug/out/lib
     def mergedDirPath = "$intermediatesDirPath/merged_native_libs/$variant.dirName/out/lib"
 
-    def prepareForStripTaskName = "prepareExecForStrip${taskSuffix}"
+    def prepareForStripTaskName = "prepareExecForStrip${capitalizedName}"
     def prepareForStripTask = tasks.create(name: prepareForStripTaskName, type: Copy) {
         from objDirPath
         into mergedDirPath
