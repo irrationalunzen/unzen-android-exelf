@@ -5,7 +5,7 @@ android {
     ndkVersion "21.3.6528147"
     defaultConfig {
         minSdkVersion 16
-        targetSdkVersion 28
+        targetSdkVersion 29
         versionCode 1
         versionName "1.0"
         externalNativeBuild {
@@ -41,7 +41,7 @@ android.libraryVariants.all { variant ->
     def capitalizedName = variant.name.capitalize()
     def defMergeJniTask = project.tasks["merge${capitalizedName}NativeLibs"]
     def defStripTask = project.tasks["strip${capitalizedName}DebugSymbols"]
-    def defPackageAssetsTask = project.tasks['package' + capitalizedName + 'Assets']
+    def defProcessJavaResTask = project.tasks['process' + capitalizedName + 'JavaRes']
 
     def intermediatesDirPath = "$project.buildDir.absolutePath/intermediates"
     // <module>/build/intermediates/ndkBuild/debug/obj/local
@@ -54,6 +54,7 @@ android.libraryVariants.all { variant ->
         from objDirPath
         into mergedDirPath
         baseAbis.each { abi ->
+            // Android Gradle builder is ignoring subdirs inside ABI dirs, so don't use them.
             include abi + '/execbar'
             include abi + '/execbaz'
         }
@@ -62,7 +63,7 @@ android.libraryVariants.all { variant ->
     // Without dependency defMergeJniTask will overwrite our work in mergedDirPath
     prepareForStripTask.dependsOn defMergeJniTask
     defStripTask.dependsOn prepareForStripTask
-    defPackageAssetsTask.dependsOn defStripTask
+    defProcessJavaResTask.dependsOn defStripTask
 }
 
 task cppVersions {

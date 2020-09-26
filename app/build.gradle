@@ -6,12 +6,12 @@ android {
     defaultConfig {
         applicationId "unzen.android.test.cpp.exec"
         minSdkVersion 16
-        targetSdkVersion 28
+        targetSdkVersion 29
         versionCode baseVersion
         versionName "$baseVersion"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         signingConfig signingConfigs.debug
-        buildConfigField("int", "VERSION_CODE_BASE", "$baseVersion")
+        buildConfigField("int", "BASE_VERSION_CODE", "$baseVersion")
     }
     buildTypes {
         debug {
@@ -91,9 +91,8 @@ android {
 }
 
 android.applicationVariants.all { variant ->
-    def srcAssetsDirPath = 'execbarbaz'
     def capitalizedName = variant.name.capitalize()
-    def defMergeAssetsTask = project.tasks['merge' + capitalizedName + 'Assets']
+    def defMergeJavaResourceTask = project.tasks["merge${capitalizedName}JavaResource"]
 
     // Prepare input dir path
     def execModuleBuildDirPath = rootDir.absolutePath + "/lib-cppmodule/build"
@@ -103,22 +102,20 @@ android.applicationVariants.all { variant ->
     // Prepare output dir path
     def intermedDirPath = "$project.buildDir.absolutePath/intermediates/"
     // <module>/build/intermediates/merged_assets/debug/out/${srcAssetsDirPath}
-    def assetsDirPath = "$intermedDirPath/merged_assets/$variant.name/out/$srcAssetsDirPath"
+    def javaResDirPath = "$intermedDirPath/java_res/$variant.name/out/lib"
 
-    def toAssetsTaskName = "copyExecToAssets${capitalizedName}"
-    def toAssetsTask = tasks.create(name: toAssetsTaskName, type: Copy) {
+    def toJavaResTaskName = "copyExecToResources${capitalizedName}"
+    def toJavaResTask = tasks.create(name: toJavaResTaskName, type: Copy) {
+        dependsOn project.tasks["strip${capitalizedName}DebugSymbols"]
         from strippedVariantDirPath
-        into assetsDirPath
+        into javaResDirPath
         variant.productFlavors.get(0).abis.each { abi ->
             include abi + '/execbar'
             include abi + '/execbaz'
         }
         includeEmptyDirs = false
     }
-    defMergeAssetsTask.finalizedBy toAssetsTask
-    defMergeAssetsTask.doLast {
-        delete(assetsDirPath)
-    }
+    defMergeJavaResourceTask.dependsOn toJavaResTask
 
     variant.outputs.all { output ->
         outputFileName = "cppexec-${variant.versionName}.apk"
@@ -130,12 +127,18 @@ gradle.taskGraph.afterTask { task ->
     if (true) {
         return
     }
+    boolean verbose = false
     // Allows to print only tasks that match some criteria
     boolean hit = true
     StringBuffer taskInfo = new StringBuffer()
-    taskInfo << "Unzen task info:"
-    taskInfo << " $task.name, $task.group, $task.description"
-    taskInfo << ", $task.convention.plugins"
+    if (verbose) {
+        taskInfo << "Unzen task info:"
+        taskInfo << " $task.name, $task.group, $task.description"
+        taskInfo << ", $task.convention.plugins"
+    }
+    task.dependsOn.forEach { dep ->
+        taskInfo << "\nD: " + dep
+    }
     task.inputs.files.eachWithIndex { it, i ->
         if (it.absolutePath.contains("java_res")) {
             hit = true
@@ -168,7 +171,7 @@ assemble.finalizedBy alephCopyApks
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
-    implementation project(path: ':lib-cppmodule')
+    implementation project(':lib-cppmodule')
     testImplementation 'junit:junit:4.13'
     androidTestImplementation 'androidx.test.ext:junit:1.1.2'
     androidTestImplementation 'androidx.test:runner:1.3.0'
