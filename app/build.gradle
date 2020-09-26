@@ -127,10 +127,10 @@ gradle.taskGraph.afterTask { task ->
     if (true) {
         return
     }
-    boolean verbose = false
     // Allows to print only tasks that match some criteria
     boolean hit = true
     StringBuffer taskInfo = new StringBuffer()
+    boolean verbose = false
     if (verbose) {
         taskInfo << "Unzen task info:"
         taskInfo << " $task.name, $task.group, $task.description"
@@ -139,17 +139,25 @@ gradle.taskGraph.afterTask { task ->
     task.dependsOn.forEach { dep ->
         taskInfo << "\nD: " + dep
     }
-    task.inputs.files.eachWithIndex { it, i ->
-        if (it.absolutePath.contains("java_res")) {
-            hit = true
+    task.inputs.eachWithIndex { it, i ->
+        if (it instanceof File) {
+            if (it.absolutePath.contains("java_res")) {
+                hit = true
+            }
+            taskInfo << "\nI: ${it.absolutePath}"
+        } else {
+            taskInfo << "\nI: ${it}"
         }
-        taskInfo << "\nI: ${it.absolutePath}"
     }
     task.outputs.files.eachWithIndex { it, i ->
-        if (it.absolutePath.contains("java_res")) {
-            hit = true
+        if (it instanceof File) {
+            if (it.absolutePath.contains("java_res")) {
+                hit = true
+            }
+            taskInfo << "\nO: ${it.absolutePath}"
+        } else {
+            taskInfo << "\nO: ${it}"
         }
-        taskInfo << "\nO: ${it.absolutePath}"
     }
     if (hit) {
         println taskInfo
