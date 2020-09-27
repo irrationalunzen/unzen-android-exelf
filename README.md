@@ -10,7 +10,7 @@ irrationalunzen@gmail.com
 
 ### License
 
-    Copyright 2019 Playful Curiosity
+    Copyright 2019-2020 Dmitry Necho
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.

@@ -112,12 +112,11 @@ android.applicationVariants.all { variant ->
     def strippedAppDirPath = "$intermedAppDirPath/stripped_native_libs/$variant.name/out/lib"
 
     def copyExecsTask = tasks.create(name: "unzenCopyExecs${variantName}", type: Copy) {
-        dependsOn
         from strippedLibDirPath
         into strippedAppDirPath
         variant.productFlavors.get(0).abis.each { abi ->
-            include abi + '/execbar'
-            include abi + '/execbaz'
+            include "$abi/execbar"
+            include "$abi/execbaz"
         }
         // On debug app builds Android OS installs from APK arbitrary named binaries,
         // but on release build it ignores everything except files named like SO libs.

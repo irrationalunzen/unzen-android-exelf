@@ -41,7 +41,6 @@ android.libraryVariants.all { variant ->
     def variantName = variant.name.capitalize()
     def defMergeJniTask = project.tasks["merge${variantName}NativeLibs"]
     def defStripTask = project.tasks["strip${variantName}DebugSymbols"]
-
     def intermedDirPath = "$project.buildDir.absolutePath/intermediates"
     // <module>/build/intermediates/ndkBuild/debug/obj/local
     def objDirPath = "$intermedDirPath/ndkBuild/$variant.dirName/obj/local"
@@ -54,8 +53,8 @@ android.libraryVariants.all { variant ->
         into mergedDirPath
         baseAbis.each { abi ->
             // Android Gradle builder is ignoring subdirs inside ABI dirs, so don't use them.
-            include abi + '/execbar'
-            include abi + '/execbaz'
+            include "$abi/execbar"
+            include "$abi/execbaz"
         }
         includeEmptyDirs = false
     }
