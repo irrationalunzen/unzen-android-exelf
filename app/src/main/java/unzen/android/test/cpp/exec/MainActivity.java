@@ -25,6 +25,7 @@ import static unzen.android.test.cpp.exec.Assert.assertTrue;
 import static unzen.android.test.cpp.exec.FileUtils.fileListedInDir;
 import static unzen.android.test.cpp.exec.Utils.executeFromAppFiles;
 import static unzen.android.test.cpp.exec.Utils.format;
+import static unzen.android.test.cpp.exec.Utils.fullSoName;
 import static unzen.android.test.cpp.exec.Utils.getExecOutput;
 import static unzen.android.test.cpp.exec.Utils.parseVerFromFile;
 import static unzen.android.test.cpp.exec.Utils.parseVerFromOutput;
@@ -38,9 +39,11 @@ import static unzen.android.test.cpp.exec.Utils.parseVerFromOutput;
 public class MainActivity extends Activity {
 
     static private final String FOO_NAME = "jnifoo";
-    static public final String FOO = "lib" + FOO_NAME + ".so";
-    static public final String BAR = "execbar";
-    static public final String BAZ = "execbaz";
+    static public final String FOO = fullSoName(FOO_NAME);
+    static private final String BAR_NAME = "execbar";
+    static public final String BAR = fullSoName(BAR_NAME);
+    static private final String BAZ_NAME = "execbaz";
+    static public final String BAZ = fullSoName(BAZ_NAME);
     static public final String QUX = "qux.sh";
     static private Set<String> EXECS = new HashSet<>(Arrays.asList(FOO, QUX, BAR, BAZ));
 
@@ -111,12 +114,12 @@ public class MainActivity extends Activity {
         return new Report(FOO, abisToVers, totalSize, parseVerFromOutput(output));
     }
 
-    private int execsVerFromOutput(File execsDir) throws IOException {
-        String barOut = getExecOutput(new File(execsDir, BAR));
-        checkOutput(BAR, barOut);
+    private int execsVerFromOutput(File execsDir, boolean fullSoName) throws IOException {
+        String barOut = getExecOutput(new File(execsDir, fullSoName ? BAR : BAR_NAME));
+        checkOutput(BAR_NAME, barOut);
         int barVer = parseVerFromOutput(barOut);
-        String bazOut = getExecOutput(new File(execsDir, BAZ));
-        checkOutput(BAZ, bazOut);
+        String bazOut = getExecOutput(new File(execsDir, fullSoName ? BAZ : BAZ_NAME));
+        checkOutput(BAZ_NAME, bazOut);
         int bazVer = parseVerFromOutput(barOut);
         assertTrue(barVer == bazVer, format("VerFromOutput %d != %d", barVer, bazVer));
         return barVer;
@@ -131,8 +134,8 @@ public class MainActivity extends Activity {
     private int execsVerFromOutputSymlinks(File execsDir) throws IOException {
         File linksDir = new File(getCacheDir(), "exec-links");
         assertTrue(linksDir.exists() || linksDir.mkdirs());
-        for (String exe : new String[] {BAR, BAZ}) {
-            File target = new File(execsDir, exe);
+        for (String exe : new String[] {BAR_NAME, BAZ_NAME}) {
+            File target = new File(execsDir, fullSoName(exe));
             File symlink = new File(linksDir, exe);
             if (symlink.exists()) {
                 assertTrue(symlink.delete());
@@ -146,7 +149,7 @@ public class MainActivity extends Activity {
             symlink(target.getAbsolutePath(), symlink.getAbsolutePath());
             assertTrue(symlink.exists());
         }
-        return execsVerFromOutput(linksDir);
+        return execsVerFromOutput(linksDir, false);
     }
 
     private Report getExecReport(File apkDir) throws IOException {
@@ -175,13 +178,13 @@ public class MainActivity extends Activity {
         if (executeFromAppFiles()) {
             for (String abi : Utils.getSupportedAbis()) {
                 if (abisToVers.containsKey(abi)) {
-                    verFromOutput = execsVerFromOutput(new File(apkLibsDir, abi));
+                    verFromOutput = execsVerFromOutput(new File(apkLibsDir, abi), true);
                     break;
                 }
             }
         } else {
             File execsDir = new File(getApplicationInfo().nativeLibraryDir);
-            int verFromOutputDirect = execsVerFromOutput(execsDir);
+            int verFromOutputDirect = execsVerFromOutput(execsDir, true);
             int verFromOutputLinks = execsVerFromOutputSymlinks(execsDir);
             assertTrue(verFromOutputDirect == verFromOutputLinks);
             verFromOutput = verFromOutputLinks;
@@ -261,16 +264,18 @@ public class MainActivity extends Activity {
         if (exeReport != null) {
             header.add("\n" + exeReport.toString());
         }
-        String text = TextUtils.join("\n", header);
-        if (!errors.isEmpty()) {
-            text = format("%s%n%n%nERRORS%n%n%s", text, TextUtils.join("\n\n", errors));
+        if (!messages.isEmpty()) {
+            header.add("\n");
+            header.addAll(messages);
         }
+        String text = TextUtils.join("\n", header);
         if (!warns.isEmpty()) {
             text = format("%s%n%n%nWARNINGS%n%n%s", text, TextUtils.join("\n\n", warns));
         }
-        if (!messages.isEmpty()) {
-            text = format("%s%n%n%nMESSAGES%n%n%s", text, TextUtils.join("\n", messages));
+        if (!errors.isEmpty()) {
+            text = format("%s%n%n%nERRORS%n%n%s", text, TextUtils.join("\n\n", errors));
         }
+
         textView.setText(text);
         if (!errors.isEmpty()) {
             textView.setTextColor(0xffff0000);

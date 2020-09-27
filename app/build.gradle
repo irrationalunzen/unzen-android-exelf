@@ -91,31 +91,40 @@ android {
 }
 
 android.applicationVariants.all { variant ->
-    def capitalizedName = variant.name.capitalize()
-    def defMergeJavaResourceTask = project.tasks["merge${capitalizedName}JavaResource"]
-
+    // 1. Android Gradle builder gather solibs in merged_native_libs dir and then
+    // performs stripping on them that places stripped solibs in stripped_native_libs.
+    // You can see this by search in task execution log for forementioned dirs and
+    // see that stripping task runs after merge task.
+    // 2. When project contains modules, they responsible for stripping their solibs
+    // on their own. You can search app build dir for solib names and you'll see that
+    // it contains only already stripped versions of solibs from modules that app
+    // depends on. However, strippend solibs from modules are copied in app's
+    // merged_native_libs dir, so app will redurantly run stripping on them second time.
+    def variantName = variant.name.capitalize()
+    def buildTypeName = variant.getBuildType().name
     // Prepare input dir path
-    def execModuleBuildDirPath = rootDir.absolutePath + "/lib-cppmodule/build"
-    def strippedRootDirPath = "$execModuleBuildDirPath/intermediates/stripped_native_libs"
-    // <module>/build/intermediates/stripped_native_libs/debug/out/lib
-    def strippedVariantDirPath = "$strippedRootDirPath/${variant.getBuildType().name}/out/lib"
+    def intermedLibDirPath = rootDir.absolutePath + "/lib-cppmodule/build/intermediates"
+    // <module>/build/intermediates/stripped_native_libs/<variant>/out/lib
+    def strippedLibDirPath = "$intermedLibDirPath/stripped_native_libs/${buildTypeName}/out/lib"
     // Prepare output dir path
-    def intermedDirPath = "$project.buildDir.absolutePath/intermediates/"
-    // <module>/build/intermediates/merged_assets/debug/out/${srcAssetsDirPath}
-    def javaResDirPath = "$intermedDirPath/java_res/$variant.name/out/lib"
+    def intermedAppDirPath = "$project.buildDir.absolutePath/intermediates/"
+    // <module>/build/intermediates/stripped_native_libs/<variant>/out/lib
+    def strippedAppDirPath = "$intermedAppDirPath/stripped_native_libs/$variant.name/out/lib"
 
-    def toJavaResTaskName = "copyExecToResources${capitalizedName}"
-    def toJavaResTask = tasks.create(name: toJavaResTaskName, type: Copy) {
-        dependsOn project.tasks["strip${capitalizedName}DebugSymbols"]
-        from strippedVariantDirPath
-        into javaResDirPath
+    def copyExecsTask = tasks.create(name: "unzenCopyExecs${variantName}", type: Copy) {
+        dependsOn
+        from strippedLibDirPath
+        into strippedAppDirPath
         variant.productFlavors.get(0).abis.each { abi ->
             include abi + '/execbar'
             include abi + '/execbaz'
         }
+        // On debug app builds Android OS installs from APK arbitrary named binaries,
+        // but on release build it ignores everything except files named like SO libs.
+        rename '(.+)', 'lib$1.so'
         includeEmptyDirs = false
     }
-    defMergeJavaResourceTask.dependsOn toJavaResTask
+    project.tasks["strip${variantName}DebugSymbols"].finalizedBy(copyExecsTask)
 
     variant.outputs.all { output ->
         outputFileName = "cppexec-${variant.versionName}.apk"

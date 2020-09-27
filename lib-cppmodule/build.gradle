@@ -38,19 +38,18 @@ android {
 }
 
 android.libraryVariants.all { variant ->
-    def capitalizedName = variant.name.capitalize()
-    def defMergeJniTask = project.tasks["merge${capitalizedName}NativeLibs"]
-    def defStripTask = project.tasks["strip${capitalizedName}DebugSymbols"]
-    def defProcessJavaResTask = project.tasks['process' + capitalizedName + 'JavaRes']
+    def variantName = variant.name.capitalize()
+    def defMergeJniTask = project.tasks["merge${variantName}NativeLibs"]
+    def defStripTask = project.tasks["strip${variantName}DebugSymbols"]
 
-    def intermediatesDirPath = "$project.buildDir.absolutePath/intermediates"
+    def intermedDirPath = "$project.buildDir.absolutePath/intermediates"
     // <module>/build/intermediates/ndkBuild/debug/obj/local
-    def objDirPath = "$intermediatesDirPath/ndkBuild/$variant.dirName/obj/local"
+    def objDirPath = "$intermedDirPath/ndkBuild/$variant.dirName/obj/local"
     // <module>/build/intermediates/merged_native_libs/debug/out/lib
-    def mergedDirPath = "$intermediatesDirPath/merged_native_libs/$variant.dirName/out/lib"
+    def mergedDirPath = "$intermedDirPath/merged_native_libs/$variant.dirName/out/lib"
 
-    def prepareForStripTaskName = "prepareExecForStrip${capitalizedName}"
-    def prepareForStripTask = tasks.create(name: prepareForStripTaskName, type: Copy) {
+    def copyExecsTaskName = "unzenCopyExecsForStrip${variantName}"
+    def copyExecsTask = tasks.create(name: copyExecsTaskName, type: Copy) {
         from objDirPath
         into mergedDirPath
         baseAbis.each { abi ->
@@ -61,9 +60,8 @@ android.libraryVariants.all { variant ->
         includeEmptyDirs = false
     }
     // Without dependency defMergeJniTask will overwrite our work in mergedDirPath
-    prepareForStripTask.dependsOn defMergeJniTask
-    defStripTask.dependsOn prepareForStripTask
-    defProcessJavaResTask.dependsOn defStripTask
+    copyExecsTask.dependsOn defMergeJniTask
+    defStripTask.dependsOn copyExecsTask
 }
 
 task cppVersions {

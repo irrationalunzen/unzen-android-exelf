@@ -16,6 +16,10 @@ public class Utils {
         return String.format(Locale.US, format, args);
     }
 
+    static public String fullSoName(String name) {
+        return "lib" + name + ".so";
+    }
+
     static public String shortenAbisNames(String s) {
         return s.replace("x86_64", "x64").replace("x86", "x32")
                 .replace("armeabi-v7a", "a32").replace("arm64-v8a", "a64");
