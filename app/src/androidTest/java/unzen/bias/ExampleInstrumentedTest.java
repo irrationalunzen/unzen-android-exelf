@@ -1,4 +1,4 @@
-package unzen.android.test.cpp.exec;
+package unzen.bias;
 
 import android.content.Context;
 
@@ -21,6 +21,6 @@ public class ExampleInstrumentedTest {
     public void useAppContext() {
         // Context of the app under test.
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        assertEquals("unzen.android.test.cpp.exec", appContext.getPackageName());
+        assertEquals("unzen.bias", appContext.getPackageName());
     }
 }

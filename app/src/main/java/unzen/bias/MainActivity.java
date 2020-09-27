@@ -1,4 +1,4 @@
-package unzen.android.test.cpp.exec;
+package unzen.bias;
 
 import android.app.Activity;
 import android.os.Build;
@@ -18,17 +18,17 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import unzen.android.test.cpp.exec.cppmodule.CppModule;
+import unzen.bias.cuscuta.Cuscuta;
 
-import static unzen.android.test.cpp.exec.Assert.assertFalse;
-import static unzen.android.test.cpp.exec.Assert.assertTrue;
-import static unzen.android.test.cpp.exec.FileUtils.fileListedInDir;
-import static unzen.android.test.cpp.exec.Utils.executeFromAppFiles;
-import static unzen.android.test.cpp.exec.Utils.format;
-import static unzen.android.test.cpp.exec.Utils.fullSoName;
-import static unzen.android.test.cpp.exec.Utils.getExecOutput;
-import static unzen.android.test.cpp.exec.Utils.parseVerFromFile;
-import static unzen.android.test.cpp.exec.Utils.parseVerFromOutput;
+import static unzen.bias.Assert.assertFalse;
+import static unzen.bias.Assert.assertTrue;
+import static unzen.bias.FileUtils.fileListedInDir;
+import static unzen.bias.Utils.executeFromAppFiles;
+import static unzen.bias.Utils.format;
+import static unzen.bias.Utils.fullSoName;
+import static unzen.bias.Utils.getExecOutput;
+import static unzen.bias.Utils.parseVerFromFile;
+import static unzen.bias.Utils.parseVerFromOutput;
 
 /**
  * Android 10 W^X policy:
@@ -109,7 +109,7 @@ public class MainActivity extends Activity {
             abisToVers.put(abiDir.getName(), parseVerFromFile(foo));
             totalSize += foo.length();
         }
-        String output = CppModule.getStringFromJni();
+        String output = Cuscuta.getStringFromJni();
         checkOutput(FOO, output);
         return new Report(FOO, abisToVers, totalSize, parseVerFromOutput(output));
     }

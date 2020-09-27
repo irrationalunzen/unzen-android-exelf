@@ -1,6 +1,6 @@
-package unzen.android.test.cpp.exec.cppmodule;
+package unzen.bias.cuscuta;
 
-public class CppModule {
+public class Cuscuta {
 
     static {
         System.loadLibrary("jnifoo");

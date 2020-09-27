@@ -1,4 +1,4 @@
-package unzen.android.test.cpp.exec;
+package unzen.bias;
 
 import android.content.Context;
 import android.os.Build;
@@ -18,7 +18,7 @@ import java.nio.file.Paths;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static unzen.android.test.cpp.exec.FileUtils.fileListedInDir;
+import static unzen.bias.FileUtils.fileListedInDir;
 
 /**
  * Investigating symlink exists() issues. Possible related issues list below.
@@ -38,12 +38,12 @@ public class FileSymlinkTest {
         // Runs normal some time after app data clear. Then, after pause in testing, starts
         // failing until next app data clear. Sample output:
         //    Link: false, false, false, false, false, false
-        //    [/data/user/0/unzen.android.test.cpp.exec/files/link]
-        //    [/data/data/unzen.android.test.cpp.exec/files/link]
-        //    [/data/user/0/unzen.android.test.cpp.exec/files]
+        //    [/data/user/0/unzen.bias/files/link]
+        //    [/data/data/unzen.bias/files/link]
+        //    [/data/user/0/unzen.bias/files]
         //    Target: true, true, false, true, false, true
-        //    [/data/user/0/unzen.android.test.cpp.exec/files/temp]
-        //    [/data/data/unzen.android.test.cpp.exec/files/temp]
+        //    [/data/user/0/unzen.bias/files/temp]
+        //    [/data/data/unzen.bias/files/temp]
         String linkMessage = String.format("%nLink: %b, %b, %b, %b, %b, %b%n[%s]%n[%s]%n[%s]",
                 link.exists(), link.canRead(), link.canExecute(), link.canWrite(),
                 link.isDirectory(), link.isFile(),

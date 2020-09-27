@@ -1,1 +1,1 @@
-include ':app', ':lib-cppmodule'
+include ':app', ':lib-cuscuta'
