@@ -1,49 +1,33 @@
 package unzen.bias;
 
 import android.content.Context;
-import android.os.Build;
-import android.system.Os;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.FlakyTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 import static unzen.bias.FileUtils.fileListedInDir;
 
-/**
- * Investigating symlink exists() issues. Possible related issues list below.
- *  https://stackoverflow.com/questions/57655086
- *  https://stackoverflow.com/questions/4226650
- */
 @RunWith(AndroidJUnit4.class)
 public class FileSymlinkTest {
 
     private void testSymlink(File target, File linkDir, File link) throws Exception {
         String targetPath = target.getAbsolutePath();
         String linkPath = link.getAbsolutePath();
+        assertTrue(target.exists());
         assertEquals(linkDir.getAbsolutePath(), link.getParent());
-        assertTrue(!link.exists() || link.delete());
+        if (link.exists()) {
+            assertTrue(link.delete());
+        }
         assertFalse(link.exists());
-        // Next assert sometimes fails. It's never fails after app data clear.
-        // Runs normal some time after app data clear. Then, after pause in testing, starts
-        // failing until next app data clear. Sample output:
-        //    Link: false, false, false, false, false, false
-        //    [/data/user/0/unzen.bias/files/link]
-        //    [/data/data/unzen.bias/files/link]
-        //    [/data/user/0/unzen.bias/files]
-        //    Target: true, true, false, true, false, true
-        //    [/data/user/0/unzen.bias/files/temp]
-        //    [/data/data/unzen.bias/files/temp]
         String linkMessage = String.format("%nLink: %b, %b, %b, %b, %b, %b%n[%s]%n[%s]%n[%s]",
                 link.exists(), link.canRead(), link.canExecute(), link.canWrite(),
                 link.isDirectory(), link.isFile(),
@@ -52,20 +36,24 @@ public class FileSymlinkTest {
                 target.exists(), target.canRead(), target.canExecute(), target.canWrite(),
                 target.isDirectory(), target.isFile(),
                 target.getAbsolutePath(), target.getCanonicalPath());
-        assertFalse(linkMessage + targetMessage, fileListedInDir(linkDir, link));
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Files.createSymbolicLink(Paths.get(linkPath), Paths.get(targetPath));
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            Os.symlink(targetPath, linkPath);
-        } else {
-            Runtime.getRuntime().exec(new String[] {"ln", "-s", targetPath, linkPath}).waitFor();
+        if (FileUtils.existsNoFollowLinks(link)) {
+            assertFalse(FileUtils.existsFollowLinks(link));
+            assertTrue(FileUtils.isSymlink(link));
+            assertTrue(fileListedInDir(linkDir, link));
+            File deadTarget = new File(FileUtils.readSymlink(link));
+            assertFalse(deadTarget.exists());
+            assertNotEquals(target, deadTarget);
+            assertTrue(link.delete());
+            assertFalse(FileUtils.existsNoFollowLinks(link));
         }
+        assertFalse(linkMessage + targetMessage, fileListedInDir(linkDir, link));
+        FileUtils.symlink(targetPath, linkPath);
         assertEquals(linkDir.getAbsolutePath(), link.getParent());
         assertTrue(fileListedInDir(linkDir, link));
         assertTrue(link.exists());
     }
 
-    @Test @FlakyTest
+    @Test
     public void test() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         File normalDir = context.getFilesDir();
@@ -76,12 +64,7 @@ public class FileSymlinkTest {
         testSymlink(normalFile, normalDir, link);
         File systemDir = new File(context.getApplicationInfo().nativeLibraryDir);
         File soFile = new File(systemDir, MainActivity.FOO);
-        assertTrue(soFile.exists() && fileListedInDir(systemDir, soFile));
+        assertTrue(soFile.exists());
         testSymlink(soFile, normalDir, link);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            File execFile = new File(systemDir, MainActivity.BAR);
-            assertTrue(execFile.exists() && fileListedInDir(systemDir, execFile));
-            testSymlink(execFile, normalDir, link);
-        }
     }
 }

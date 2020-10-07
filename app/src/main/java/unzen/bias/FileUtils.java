@@ -1,38 +1,80 @@
 package unzen.bias;
 
+import android.os.Build;
+import android.system.Os;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Paths;
 import java.util.Objects;
+
+import static java.lang.String.format;
 
 /**
  * Some methods copied from Apache Commons IO.
  */
 public class FileUtils {
 
-    /**
-     * Determines if the specified file is possibly a broken symbolic link.
-     *
-     * @param file the file to check
+    static public void symlink(String target, String link) throws Exception {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Files.createSymbolicLink(Paths.get(link), Paths.get(target));
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            Os.symlink(target, link);
+        } else {
+            Runtime.getRuntime().exec(new String[] {"ln", "-s", target, link}).waitFor();
+        }
+    }
 
-     * @return true if the file is a Symbolic Link
-     * @throws IOException if an IO error occurs while checking the file
-     */
-    private static boolean isBrokenSymlink(final File file) throws IOException {
-        // if file exists then if it is a symlink it's not broken
-        if (file.exists()) {
-            return false;
+    public static String readSymlink(File symlink) throws IOException {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            String target = Files.readSymbolicLink(symlink.toPath()).toString();
+            if (symlink.exists()) {
+                // Since getCanonicalPath() and getCanonicalFile() works only for non broken
+                // links, this check has sense only if link is not broken. Broken symlinks
+                // returns false from exists().
+                String compatTarget = symlink.getCanonicalPath();
+                if (!target.equals(compatTarget)) {
+                    throw new IOException(format("!target.equals(compatTarget) [%s] -> [%s][%s]",
+                            symlink, target, compatTarget));
+                }
+            }
+            return target;
         }
-        // a broken symlink will show up in the list of files of its parent directory
-        final File canon = file.getCanonicalFile();
-        File parentDir = canon.getParentFile();
-        if (parentDir == null || !parentDir.exists()) {
-            return false;
+        String target = symlink.getCanonicalPath();
+        if (target.equals(symlink.getAbsolutePath())) {
+            throw new IOException(format("Not a symlink: %s", symlink));
         }
-        // is it worthwhile to create a FileFilterUtil method for this?
-        // is it worthwhile to create an "identity"  IOFileFilter for this?
-        File[] fileInDir = parentDir.listFiles(aFile -> aFile.equals(canon));
-        return fileInDir != null && fileInDir.length > 0;
+        return target;
+    }
+
+    public static boolean existsFollowLinks(File file) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return Files.exists(file.toPath());
+        }
+        return file.exists();
+    }
+
+    public static boolean existsNoFollowLinks(File file) throws IOException {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return Files.exists(file.toPath(), LinkOption.NOFOLLOW_LINKS);
+        }
+        boolean res = file.exists();
+        if (res) {
+            return true;
+        }
+        return fileListedInDir(file.getParentFile(), file);
+    }
+
+    static public boolean fileListedInDir(File dir, File file) {
+        for (File fileInDir : Objects.requireNonNull(dir.listFiles())) {
+            if (fileInDir.getAbsolutePath().equals(file.getAbsolutePath())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -43,24 +85,47 @@ public class FileUtils {
      * @param file the file to check
      * @return true if the file is a Symbolic Link
      * @throws IOException if an IO error occurs while checking the file
-     * @since 2.0
      */
-    public static boolean isSymlink(final File file) throws IOException {
+    public static boolean isSymlink(File file) throws IOException {
         if (file == null) {
             throw new NullPointerException("File must not be null");
         }
+        // We dont use here simple getCanonicalPath() equals getAbsolutePath() because they
+        // might be not equals when there is symlink in upper path, but the file that
+        // we currently checking is not a symlink.
         File fileInCanonicalDir;
         if (file.getParent() == null) {
             fileInCanonicalDir = file;
         } else {
-            final File canonicalDir = file.getParentFile().getCanonicalFile();
+            File canonicalDir = Objects.requireNonNull(file.getParentFile()).getCanonicalFile();
             fileInCanonicalDir = new File(canonicalDir, file.getName());
         }
+        boolean res;
         if (fileInCanonicalDir.getCanonicalFile().equals(fileInCanonicalDir.getAbsoluteFile())) {
-            return isBrokenSymlink(file);
+            // If file exists then if it is a symlink it's not broken.
+            if (file.exists()) {
+                res = false;
+            } else {
+                // Broken symlink will show up in the list of files of its parent directory.
+                File canon = file.getCanonicalFile();
+                File parentDir = canon.getParentFile();
+                if (parentDir == null || !parentDir.exists()) {
+                    res = false;
+                } else {
+                    File[] fileInDir = parentDir.listFiles(aFile -> aFile.equals(canon));
+                    res = fileInDir != null && fileInDir.length > 0;
+                }
+            }
         } else {
-            return true;
+            res = true;
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            boolean resNormal = Files.isSymbolicLink(file.toPath());
+            if (res != resNormal) {
+                throw new IOException(format("%b, %b, %s", resNormal, res, file));
+            }
+        }
+        return res;
     }
 
     /**
@@ -155,14 +220,5 @@ public class FileUtils {
             final String message = "Unable to delete directory " + directory + ".";
             throw new IOException(message);
         }
-    }
-
-    static public boolean fileListedInDir(File dir, File file) {
-        for (File fileInDir : Objects.requireNonNull(dir.listFiles())) {
-            if (fileInDir.getAbsolutePath().equals(file.getAbsolutePath())) {
-                return true;
-            }
-        }
-        return false;
     }
 }

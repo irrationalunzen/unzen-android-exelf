@@ -8,8 +8,6 @@ import android.widget.TextView;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -45,7 +43,8 @@ public class MainActivity extends Activity {
     static private final String BAZ_NAME = "execbaz";
     static public final String BAZ = fullSoName(BAZ_NAME);
     static public final String QUX = "qux.sh";
-    static private Set<String> EXECS = new HashSet<>(Arrays.asList(FOO, QUX, BAR, BAZ));
+    static private Set<String> MIN_EXECS = new HashSet<>(Arrays.asList(FOO, BAR, BAZ));
+    static private Set<String> APK_EXECS = new HashSet<>(Arrays.asList(FOO, QUX, BAR, BAZ));
 
     static private class Report {
 
@@ -114,45 +113,50 @@ public class MainActivity extends Activity {
         return new Report(FOO, abisToVers, totalSize, parseVerFromOutput(output));
     }
 
-    private int execsVerFromOutput(File execsDir, boolean fullSoName) throws IOException {
-        String barOut = getExecOutput(new File(execsDir, fullSoName ? BAR : BAR_NAME));
+    private int execsVerFromOutput(File execsDir, boolean fullName, boolean setExec) throws IOException {
+        File barExe = new File(execsDir, fullName ? BAR : BAR_NAME);
+        assertTrue(!setExec || barExe.setExecutable(true));
+        String barOut = getExecOutput(barExe);
         checkOutput(BAR_NAME, barOut);
         int barVer = parseVerFromOutput(barOut);
-        String bazOut = getExecOutput(new File(execsDir, fullSoName ? BAZ : BAZ_NAME));
+        File bazExe = new File(execsDir, fullName ? BAZ : BAZ_NAME);
+        assertTrue(!setExec || bazExe.setExecutable(true));
+        String bazOut = getExecOutput(bazExe);
         checkOutput(BAZ_NAME, bazOut);
         int bazVer = parseVerFromOutput(barOut);
         assertTrue(barVer == bazVer, format("VerFromOutput %d != %d", barVer, bazVer));
         return barVer;
     }
 
-    private void symlink(String target, String link) throws IOException {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Files.createSymbolicLink(Paths.get(link), Paths.get(target));
-        }
-    }
-
-    private int execsVerFromOutputSymlinks(File execsDir) throws IOException {
+    private int execsVerFromOutputSymlinks(File execsDir) throws Exception {
         File linksDir = new File(getCacheDir(), "exec-links");
         assertTrue(linksDir.exists() || linksDir.mkdirs());
         for (String exe : new String[] {BAR_NAME, BAZ_NAME}) {
             File target = new File(execsDir, fullSoName(exe));
+            assertTrue(target.exists());
             File symlink = new File(linksDir, exe);
             if (symlink.exists()) {
                 assertTrue(symlink.delete());
             }
             assertFalse(symlink.exists());
-            if (fileListedInDir(linksDir, symlink)) {
+            if (FileUtils.existsNoFollowLinks(symlink)) {
+                assertFalse(FileUtils.existsFollowLinks(symlink));
+                assertTrue(FileUtils.isSymlink(symlink));
+                assertTrue(FileUtils.fileListedInDir(linksDir, symlink));
+                File deadTarget = new File(FileUtils.readSymlink(symlink));
+                assertFalse(deadTarget.exists());
+                assertFalse(target.equals(deadTarget));
                 assertTrue(symlink.delete());
-                warn("Symlink exists() is false but its name is present in parent listing: %s",
-                        symlink.getAbsolutePath());
+                assertFalse(FileUtils.existsNoFollowLinks(symlink));
             }
-            symlink(target.getAbsolutePath(), symlink.getAbsolutePath());
+            assertFalse(fileListedInDir(linksDir, symlink));
+            FileUtils.symlink(target.getAbsolutePath(), symlink.getAbsolutePath());
             assertTrue(symlink.exists());
         }
-        return execsVerFromOutput(linksDir, false);
+        return execsVerFromOutput(linksDir, false, false);
     }
 
-    private Report getExecReport(File apkDir) throws IOException {
+    private Report getExecReport(File apkDir) throws Exception {
         File apkLibsDir = new File(apkDir, "lib");
         Map<String, Integer> abisToVers = new HashMap<>();
         long totalSize = 0;
@@ -161,11 +165,11 @@ public class MainActivity extends Activity {
             if (names.size() == 1 && names.contains(QUX)) {
                 continue;
             }
-            if (names.size() == 2 && names.contains(FOO) && names.contains(QUX)) {
-                error("Build missing %s and %s.", BAR, BAZ);
+            if (!names.contains(BAR) && !names.contains(BAZ)) {
+                error("APK missing ELFs.%n%s", names);
                 return null;
             }
-            assertTrue(EXECS.equals(names), names.toString());
+            assertTrue(APK_EXECS.equals(names), names.toString());
             File bar = new File(abiDir, BAR);
             File baz = new File(abiDir, BAZ);
             int barVer = parseVerFromFile(bar);
@@ -174,23 +178,22 @@ public class MainActivity extends Activity {
             abisToVers.put(abiDir.getName(), barVer);
             totalSize += bar.length() + baz.length();
         }
-        int verFromOutput = -1;
+        File execsDir = new File(getApplicationInfo().nativeLibraryDir);
+        int verFromOutputDirect = execsVerFromOutput(execsDir, true, false);
+        int verFromOutputLinks = execsVerFromOutputSymlinks(execsDir);
+        assertTrue(verFromOutputDirect == verFromOutputLinks);
+        int verFromOutput = verFromOutputLinks;
+        assertFalse(verFromOutput == -1);
         if (executeFromAppFiles()) {
             for (String abi : Utils.getSupportedAbis()) {
                 if (abisToVers.containsKey(abi)) {
-                    verFromOutput = execsVerFromOutput(new File(apkLibsDir, abi), true);
+                    int ver = execsVerFromOutput(new File(apkLibsDir, abi), true, true);
+                    assertTrue(ver == verFromOutput);
                     break;
                 }
             }
-        } else {
-            File execsDir = new File(getApplicationInfo().nativeLibraryDir);
-            int verFromOutputDirect = execsVerFromOutput(execsDir, true);
-            int verFromOutputLinks = execsVerFromOutputSymlinks(execsDir);
-            assertTrue(verFromOutputDirect == verFromOutputLinks);
-            verFromOutput = verFromOutputLinks;
         }
-        assertFalse(verFromOutput == -1);
-        return new Report("barbaz", abisToVers, totalSize, verFromOutput);
+        return new Report("execbar, execbaz", abisToVers, totalSize, verFromOutput);
     }
 
     private final ArrayList<String> messages = new ArrayList<>();
@@ -286,11 +289,34 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void nativeLibraryDirReport() {
-        message("getApplicationInfo().nativeLibraryDir");
-        String[] execs = new File(getApplicationInfo().nativeLibraryDir).list();
-        message("{" + TextUtils.join(", ", Objects.requireNonNull(execs)) + "}");
-        message(getApplicationInfo().nativeLibraryDir);
+    private Set<String> getExpectedInstalledExecs() {
+        // https://developer.android.com/ndk/guides/wrap-script
+        if (BuildConfig.DEBUG && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            return APK_EXECS;
+        }
+        return MIN_EXECS;
+    }
+
+    private String nativeLibraryDirMessage(File dir, Set<String> elfs) throws IOException {
+        String message = "getApplicationInfo().nativeLibraryDir";
+        message += "\n" + elfs.toString();
+        message += "\n" + getApplicationInfo().nativeLibraryDir;
+        if (FileUtils.isSymlink(dir) || !dir.getAbsolutePath().equals(dir.getCanonicalPath())) {
+            message += "\n" + FileUtils.readSymlink(dir);
+        }
+        return message;
+    }
+
+    private void nativeLibraryDirReport() throws IOException {
+        File dir = new File(getApplicationInfo().nativeLibraryDir);
+        Set<String> elfs = new HashSet<>(Arrays.asList(Objects.requireNonNull(dir.list())));
+        if (elfs.equals(getExpectedInstalledExecs())) {
+            if (FileUtils.isSymlink(dir) || !dir.getAbsolutePath().equals(dir.getCanonicalPath())) {
+                message(nativeLibraryDirMessage(dir, elfs));
+            }
+        } else {
+            warn(nativeLibraryDirMessage(dir, elfs));
+        }
     }
 
     private File unpackApk() throws IOException {
@@ -317,7 +343,7 @@ public class MainActivity extends Activity {
             Report exeReport = getExecReport(apkDir);
             checkJniExeReports(jniReport, exeReport);
             displayReport(jniReport, exeReport, findViewById(R.id.main_text));
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }

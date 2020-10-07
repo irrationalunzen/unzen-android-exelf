@@ -108,22 +108,39 @@ android.applicationVariants.all { variant ->
     def strippedLibDirPath = "$intermedLibDirPath/stripped_native_libs/${buildTypeName}/out/lib"
     // Prepare output dir path
     def intermedAppDirPath = "$project.buildDir.absolutePath/intermediates/"
-    // <module>/build/intermediates/stripped_native_libs/<variant>/out/lib
-    def strippedAppDirPath = "$intermedAppDirPath/stripped_native_libs/$variant.name/out/lib"
 
-    def copyExecsTask = tasks.create(name: "unzenCopyExecs${variantName}", type: Copy) {
-        from strippedLibDirPath
-        into strippedAppDirPath
-        variant.productFlavors.get(0).abis.each { abi ->
-            include "$abi/execbar"
-            include "$abi/execbaz"
+    if (packAllElfsAsSo) {
+        // <module>/build/intermediates/stripped_native_libs/<variant>/out/lib
+        def strippedAppDirPath = "$intermedAppDirPath/stripped_native_libs/$variant.name/out/lib"
+        def copyExecsTask = tasks.create(name: "unzenCopyExecs${variantName}", type: Copy) {
+            from strippedLibDirPath
+            into strippedAppDirPath
+            variant.productFlavors.get(0).abis.each { abi ->
+                include "$abi/execbar"
+                include "$abi/execbaz"
+            }
+            // On debug app builds Android OS installs from APK arbitrary named binaries,
+            // but on release build it ignores everything except files named like SO libs.
+            rename '(.+)', 'lib$1.so'
+            includeEmptyDirs = false
         }
-        // On debug app builds Android OS installs from APK arbitrary named binaries,
-        // but on release build it ignores everything except files named like SO libs.
-        rename '(.+)', 'lib$1.so'
-        includeEmptyDirs = false
+        project.tasks["strip${variantName}DebugSymbols"].finalizedBy(copyExecsTask)
+    } else {
+        // <module>/build/intermediates/java_res/<variant>/out/lib
+        def javaResAppDirPath = "$intermedAppDirPath/java_res/$variant.name/out/lib"
+        def copyExecsTask = tasks.create(name: "unzenCopyExecs${variantName}", type: Copy) {
+            dependsOn project.tasks["strip${variantName}DebugSymbols"]
+            from strippedLibDirPath
+            into javaResAppDirPath
+            variant.productFlavors.get(0).abis.each { abi ->
+                include "$abi/execbar"
+                include "$abi/execbaz"
+            }
+            rename '(.+)', '$1'
+            includeEmptyDirs = false
+        }
+        project.tasks["merge${variantName}JavaResource"].dependsOn copyExecsTask
     }
-    project.tasks["strip${variantName}DebugSymbols"].finalizedBy(copyExecsTask)
 
     variant.outputs.all { output ->
         outputFileName = "cppexec-${variant.versionName}.apk"

@@ -72,11 +72,6 @@ public class Utils {
         if (!exec.exists()) {
             throw new IllegalStateException("Elf not exists: " + exec.getAbsolutePath());
         }
-        if (executeFromAppFiles()) {
-            if (!exec.setExecutable(true)) {
-                throw new IllegalStateException();
-            }
-        }
         if (!exec.canExecute()) {
             throw new IllegalStateException("Elf not executable: " + exec.getAbsolutePath());
         }

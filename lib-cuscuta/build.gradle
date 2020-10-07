@@ -61,6 +61,9 @@ android.libraryVariants.all { variant ->
     // Without dependency defMergeJniTask will overwrite our work in mergedDirPath
     copyExecsTask.dependsOn defMergeJniTask
     defStripTask.dependsOn copyExecsTask
+    if (!packAllElfsAsSo) {
+        project.tasks["process${variantName}JavaRes"].dependsOn defStripTask
+    }
 }
 
 task cppVersions {
