@@ -3,6 +3,6 @@
 
 int main(int argc, char *argv[])
 {
-    printf("I'm execbaz! %s", GLOBAL_VERSION);
+    printf("I'm exebar! %s", GLOBAL_VERSION);
     return 0;
 }

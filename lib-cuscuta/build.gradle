@@ -10,7 +10,7 @@ android {
         versionName "1.0"
         externalNativeBuild {
             ndkBuild {
-                targets 'jnifoo', 'execbar', 'execbaz'
+                targets 'jnifoo', 'exebar', 'exebaz'
             }
         }
     }
@@ -47,20 +47,20 @@ android.libraryVariants.all { variant ->
     // <module>/build/intermediates/merged_native_libs/debug/out/lib
     def mergedDirPath = "$intermedDirPath/merged_native_libs/$variant.dirName/out/lib"
 
-    def copyExecsTaskName = "unzenCopyExecsForStrip${variantName}"
-    def copyExecsTask = tasks.create(name: copyExecsTaskName, type: Copy) {
+    def copyExesTaskName = "unzenCopyExesForStrip${variantName}"
+    def copyExesTask = tasks.create(name: copyExesTaskName, type: Copy) {
         from objDirPath
         into mergedDirPath
         baseAbis.each { abi ->
             // Android Gradle builder is ignoring subdirs inside ABI dirs, so don't use them.
-            include "$abi/execbar"
-            include "$abi/execbaz"
+            include "$abi/exebar"
+            include "$abi/exebaz"
         }
         includeEmptyDirs = false
     }
     // Without dependency defMergeJniTask will overwrite our work in mergedDirPath
-    copyExecsTask.dependsOn defMergeJniTask
-    defStripTask.dependsOn copyExecsTask
+    copyExesTask.dependsOn defMergeJniTask
+    defStripTask.dependsOn copyExesTask
     if (!packAllElfsAsSo) {
         project.tasks["process${variantName}JavaRes"].dependsOn defStripTask
     }

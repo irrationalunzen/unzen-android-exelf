@@ -112,38 +112,38 @@ android.applicationVariants.all { variant ->
     if (packAllElfsAsSo) {
         // <module>/build/intermediates/stripped_native_libs/<variant>/out/lib
         def strippedAppDirPath = "$intermedAppDirPath/stripped_native_libs/$variant.name/out/lib"
-        def copyExecsTask = tasks.create(name: "unzenCopyExecs${variantName}", type: Copy) {
+        def copyExesTask = tasks.create(name: "unzenCopyExes${variantName}", type: Copy) {
             from strippedLibDirPath
             into strippedAppDirPath
             variant.productFlavors.get(0).abis.each { abi ->
-                include "$abi/execbar"
-                include "$abi/execbaz"
+                include "$abi/exebar"
+                include "$abi/exebaz"
             }
             // On debug app builds Android OS installs from APK arbitrary named binaries,
             // but on release build it ignores everything except files named like SO libs.
             rename '(.+)', 'lib$1.so'
             includeEmptyDirs = false
         }
-        project.tasks["strip${variantName}DebugSymbols"].finalizedBy(copyExecsTask)
+        project.tasks["strip${variantName}DebugSymbols"].finalizedBy(copyExesTask)
     } else {
         // <module>/build/intermediates/java_res/<variant>/out/lib
         def javaResAppDirPath = "$intermedAppDirPath/java_res/$variant.name/out/lib"
-        def copyExecsTask = tasks.create(name: "unzenCopyExecs${variantName}", type: Copy) {
+        def copyExesTask = tasks.create(name: "unzenCopyExes${variantName}", type: Copy) {
             dependsOn project.tasks["strip${variantName}DebugSymbols"]
             from strippedLibDirPath
             into javaResAppDirPath
             variant.productFlavors.get(0).abis.each { abi ->
-                include "$abi/execbar"
-                include "$abi/execbaz"
+                include "$abi/exebar"
+                include "$abi/exebaz"
             }
             rename '(.+)', '$1'
             includeEmptyDirs = false
         }
-        project.tasks["merge${variantName}JavaResource"].dependsOn copyExecsTask
+        project.tasks["merge${variantName}JavaResource"].dependsOn copyExesTask
     }
 
     variant.outputs.all { output ->
-        outputFileName = "cppexec-${variant.versionName}.apk"
+        outputFileName = "unzen-bias-${variant.versionName}.apk"
     }
 }
 

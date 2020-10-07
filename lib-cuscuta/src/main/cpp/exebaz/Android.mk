@@ -1,8 +1,8 @@
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
-LOCAL_MODULE := execbaz
+LOCAL_MODULE := exebaz
 
 LOCAL_SRC_FILES :=  \
-	execbaz.cpp
+	exebaz.cpp
 
 include $(BUILD_EXECUTABLE)

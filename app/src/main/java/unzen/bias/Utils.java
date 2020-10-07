@@ -68,14 +68,14 @@ public class Utils {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q;
     }
 
-    static public String getExecOutput(File exec) throws IOException {
-        if (!exec.exists()) {
-            throw new IllegalStateException("Elf not exists: " + exec.getAbsolutePath());
+    static public String getExeOutput(File exe) throws IOException {
+        if (!exe.exists()) {
+            throw new IllegalStateException("Exe not exists: " + exe.getAbsolutePath());
         }
-        if (!exec.canExecute()) {
-            throw new IllegalStateException("Elf not executable: " + exec.getAbsolutePath());
+        if (!exe.canExecute()) {
+            throw new IllegalStateException("Exe not executable: " + exe.getAbsolutePath());
         }
-        ProcessBuilder builder = new ProcessBuilder(exec.getAbsolutePath());
+        ProcessBuilder builder = new ProcessBuilder(exe.getAbsolutePath());
         Process process = builder.start();
         StringBuilder sb = new StringBuilder();
         try (InputStream stream = process.getInputStream()) {
