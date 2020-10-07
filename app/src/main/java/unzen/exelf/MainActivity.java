@@ -1,4 +1,4 @@
-package unzen.bias;
+package unzen.exelf;
 
 import android.app.Activity;
 import android.os.Build;
@@ -16,17 +16,17 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import unzen.bias.cuscuta.Cuscuta;
+import unzen.exelf.cuscuta.Cuscuta;
 
-import static unzen.bias.Assert.assertFalse;
-import static unzen.bias.Assert.assertTrue;
-import static unzen.bias.FileUtils.fileListedInDir;
-import static unzen.bias.Utils.executeFromAppFiles;
-import static unzen.bias.Utils.format;
-import static unzen.bias.Utils.fullSoName;
-import static unzen.bias.Utils.getExeOutput;
-import static unzen.bias.Utils.parseVerFromFile;
-import static unzen.bias.Utils.parseVerFromOutput;
+import static unzen.exelf.Assert.assertFalse;
+import static unzen.exelf.Assert.assertTrue;
+import static unzen.exelf.FileUtils.fileListedInDir;
+import static unzen.exelf.Utils.executeFromAppFiles;
+import static unzen.exelf.Utils.format;
+import static unzen.exelf.Utils.fullSoName;
+import static unzen.exelf.Utils.getExeOutput;
+import static unzen.exelf.Utils.parseVerFromFile;
+import static unzen.exelf.Utils.parseVerFromOutput;
 
 /**
  * Android 10 W^X policy:

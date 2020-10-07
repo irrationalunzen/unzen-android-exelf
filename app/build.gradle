@@ -4,7 +4,7 @@ android {
     compileSdkVersion 29
     ndkVersion "21.3.6528147"
     defaultConfig {
-        applicationId "unzen.bias"
+        applicationId "unzen.exelf"
         minSdkVersion 16
         targetSdkVersion 29
         versionCode baseVersion
@@ -143,7 +143,7 @@ android.applicationVariants.all { variant ->
     }
 
     variant.outputs.all { output ->
-        outputFileName = "unzen-bias-${variant.versionName}.apk"
+        outputFileName = "unzen-exelf-${variant.versionName}.apk"
     }
 }
 

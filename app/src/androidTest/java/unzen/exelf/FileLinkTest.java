@@ -1,4 +1,4 @@
-package unzen.bias;
+package unzen.exelf;
 
 import android.content.Context;
 import android.os.Build;
@@ -19,7 +19,7 @@ import java.util.Objects;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static unzen.bias.FileUtils.fileListedInDir;
+import static unzen.exelf.FileUtils.fileListedInDir;
 
 /**
  * Looks like creating hard links without root was disabled since Android M.

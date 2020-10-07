@@ -1,4 +1,4 @@
-package unzen.bias;
+package unzen.exelf;
 
 import org.junit.Test;
 
