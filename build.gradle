@@ -5,13 +5,16 @@ buildscript {
         baseVersion = 1010
         baseAbis = ['armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64']
         packAllElfsAsSo = true
+        exelfTargetSdkVersion = 29
+        exelfCompileSdkVersion = 29
+        exelfNdkVersion = '21.3.6528147'
     }
     repositories {
         google()
         jcenter()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:4.0.2'
+        classpath 'com.android.tools.build:gradle:4.1.0'
     }
 }
 
