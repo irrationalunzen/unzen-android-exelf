@@ -2,7 +2,7 @@
 
 buildscript {
     ext {
-        baseVersion = 1010
+        baseVersion = 1020
         baseAbis = ['armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64']
         exelfTargetSdkVersion = 30
         exelfCompileSdkVersion = 30

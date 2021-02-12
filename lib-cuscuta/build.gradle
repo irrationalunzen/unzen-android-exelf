@@ -38,6 +38,15 @@ android {
 }
 
 android.libraryVariants.all { variant ->
+    // 1. Android Gradle builder gather solibs in merged_native_libs dir and then
+    // performs stripping on them that places stripped solibs in stripped_native_libs.
+    // You can see this by search in task execution log for forementioned dirs and
+    // see that stripping task runs after merge task.
+    // 2. When project contains modules, they responsible for stripping their solibs
+    // on their own. You can search app build dir for solib names and you'll see that
+    // it contains only already stripped versions of solibs from modules that app
+    // depends on. However, strippend solibs from modules are copied in app's
+    // merged_native_libs dir, so app will redurantly run stripping on them second time.
     def variantName = variant.name.capitalize()
     def defMergeJniTask = project.tasks["merge${variantName}NativeLibs"]
     def defStripTask = project.tasks["strip${variantName}DebugSymbols"]
@@ -56,6 +65,9 @@ android.libraryVariants.all { variant ->
             include "$abi/exebar"
             include "$abi/exebaz"
         }
+        // On debug app builds Android OS installs from APK arbitrary named binaries,
+        // but on release build it ignores everything except files named like SO libs.
+        rename '(.+)', 'lib$1.so'
         includeEmptyDirs = false
     }
     // Without dependency defMergeJniTask will overwrite our work in mergedDirPath
