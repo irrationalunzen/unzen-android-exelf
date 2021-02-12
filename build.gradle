@@ -4,10 +4,9 @@ buildscript {
     ext {
         baseVersion = 1010
         baseAbis = ['armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64']
-        packAllElfsAsSo = true
-        exelfTargetSdkVersion = 29
-        exelfCompileSdkVersion = 29
-        exelfNdkVersion = '21.3.6528147'
+        exelfTargetSdkVersion = 30
+        exelfCompileSdkVersion = 30
+        exelfNdkVersion = '22.0.7026061'
     }
     repositories {
         google()
